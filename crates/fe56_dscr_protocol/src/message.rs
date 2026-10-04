@@ -4,27 +4,27 @@ use std::str;
 // An implementation of the DSCR message protocol.
 // https://github.com/dixonary/mfds-server/tree/main
 
-pub type SymbolT = i64;
+pub type IntT = i64;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Message {
     // Client -> Server
     // S
-    SetCallSign { call_sign: SymbolT, reconnect: bool },
+    SetCallSign { call_sign: IntT, reconnect: bool },
     // M
-    BroadcastMessage(Vec<SymbolT>),
+    BroadcastMessage(Vec<IntT>),
 
     // Server -> Client
     // R
-    ReceivedMessage { call_sign: SymbolT, sequence_num: SymbolT, message: Vec<SymbolT> },
+    ReceivedMessage { call_sign: IntT, sequence_num: IntT, message: Vec<IntT> },
     // K
-    CallSignOk(SymbolT),
+    CallSignOk(IntT),
     // E
     ReconnectOk,
     // U
-    CallSignInUse(SymbolT),
+    CallSignInUse(IntT),
     // C
-    CallSignsUpdate(Vec<SymbolT>),
+    CallSignsUpdate(Vec<IntT>),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -51,11 +51,11 @@ impl str::FromStr for Message {
                 // Callsign is required
                 let call_sign = it
                     .next().ok_or(Self::Err::TooFewSymbols)?
-                    .parse::<SymbolT>().map_err(|_| Self::Err::UnexpectedSymbolValue)?;
+                    .parse::<IntT>().map_err(|_| Self::Err::UnexpectedSymbolValue)?;
 
                 // Reconnect hint is optional but if it is present, it must be 0
                 let reconnect = match it.next() {
-                    Some(hint) => match hint.parse::<SymbolT>() {
+                    Some(hint) => match hint.parse::<IntT>() {
                         Ok(0) => true,
                         _ => false
                         // pedantic
@@ -73,8 +73,8 @@ impl str::FromStr for Message {
             },
             Some("M") => {
                 // M,<symbol>[,<symbol>...]
-                let message: Vec<SymbolT> = it
-                    .map(|x| x.parse::<SymbolT>()).collect::<Result<Vec<_>, _>>()
+                let message: Vec<IntT> = it
+                    .map(|x| x.parse::<IntT>()).collect::<Result<Vec<_>, _>>()
                     .map_err(|_| Self::Err::UnexpectedSymbolValue)?;
 
                 // pedantic: Reject an empty message
@@ -90,15 +90,15 @@ impl str::FromStr for Message {
                 // Callsign is required
                 let call_sign = it
                     .next().ok_or(Self::Err::TooFewSymbols)?
-                    .parse::<SymbolT>().map_err(|_| Self::Err::UnexpectedSymbolValue)?;
+                    .parse::<IntT>().map_err(|_| Self::Err::UnexpectedSymbolValue)?;
 
                 // Sequence is required
                 let sequence_num = it
                     .next().ok_or(Self::Err::TooFewSymbols)?
-                    .parse::<SymbolT>().map_err(|_| Self::Err::UnexpectedSymbolValue)?;
+                    .parse::<IntT>().map_err(|_| Self::Err::UnexpectedSymbolValue)?;
 
-                let message: Vec<SymbolT> = it
-                    .map(|x| x.parse::<SymbolT>()).collect::<Result<Vec<_>, _>>()
+                let message: Vec<IntT> = it
+                    .map(|x| x.parse::<IntT>()).collect::<Result<Vec<_>, _>>()
                     .map_err(|_| Self::Err::UnexpectedSymbolValue)?;
 
                 // pedantic: Reject an empty message
@@ -113,7 +113,7 @@ impl str::FromStr for Message {
                 // Callsign is required
                 let call_sign = it
                     .next().ok_or(Self::Err::TooFewSymbols)?
-                    .parse::<SymbolT>().map_err(|_| Self::Err::UnexpectedSymbolValue)?;
+                    .parse::<IntT>().map_err(|_| Self::Err::UnexpectedSymbolValue)?;
 
                 // pedantic: Reject if some tokens are unconsumed
                 // if it.next().is_some() {
@@ -135,7 +135,7 @@ impl str::FromStr for Message {
                 // Callsign is required
                 let call_sign = it
                     .next().ok_or(Self::Err::TooFewSymbols)?
-                    .parse::<SymbolT>().map_err(|_| Self::Err::UnexpectedSymbolValue)?;
+                    .parse::<IntT>().map_err(|_| Self::Err::UnexpectedSymbolValue)?;
 
                 // pedantic: Reject if some tokens are unconsumed
                 // if it.next().is_some() {
@@ -146,8 +146,8 @@ impl str::FromStr for Message {
             },
             Some("C") => {
                 // C[,<callsign>...]
-                let call_signs: Vec<SymbolT> = it
-                    .map(|x| x.parse::<SymbolT>()).collect::<Result<Vec<_>, _>>()
+                let call_signs: Vec<IntT> = it
+                    .map(|x| x.parse::<IntT>()).collect::<Result<Vec<_>, _>>()
                     .map_err(|_| Self::Err::UnexpectedSymbolValue)?;
 
                 Ok(Self::CallSignsUpdate(call_signs))

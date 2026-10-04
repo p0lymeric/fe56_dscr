@@ -16,20 +16,20 @@ pub enum ClientTransportState {
 pub enum ClientApplicationState {
     Unregistered { retry: Option<time::Instant> },
     Registering { check: time::Instant },
-    Registered { call_sign: message::SymbolT },
+    Registered { call_sign: message::IntT },
 }
 
 #[derive(Debug)]
 pub struct ClientConfig {
     url: Option<String>,
-    desired_call_sign: Option<message::SymbolT>
+    desired_call_sign: Option<message::IntT>
 }
 
 #[derive(Debug)]
 pub struct ClientApplication {
     state: ClientApplicationState,
-    requested_call_sign: Option<message::SymbolT>,
-    call_signs: Vec<message::SymbolT>,
+    requested_call_sign: Option<message::IntT>,
+    call_signs: Vec<message::IntT>,
 }
 
 #[derive(Debug)]
@@ -51,7 +51,7 @@ pub struct ClientSession {
 
 #[derive(Debug)]
 pub enum FrontendAction {
-    Message { rx_time: time::Instant, call_sign: message::SymbolT, sequence_num: message::SymbolT, message: Vec<message::SymbolT> },
+    Message { rx_time: time::Instant, call_sign: message::IntT, sequence_num: message::IntT, message: Vec<message::IntT> },
     CallSignsUpdate,
 }
 
@@ -197,14 +197,14 @@ impl ClientSession {
         self.transport.connection_consecutive_failure_count
     }
 
-    pub fn frontend_put_callsign_registration(&mut self, t: time::Instant, call_sign: message::SymbolT, reconnect: bool) {
+    pub fn frontend_put_callsign_registration(&mut self, t: time::Instant, call_sign: message::IntT, reconnect: bool) {
         self.application.state = ClientApplicationState::Registering {
             check: t + time::Duration::from_secs(5),
         };
         self.application.requested_call_sign = Some(call_sign);
         self.outbox_backend.push(BackendAction::SendText { s: message::Message::SetCallSign { call_sign, reconnect }.to_string() });
     }
-    pub fn frontend_put_message(&mut self, t: time::Instant, message: Vec<message::SymbolT>) {
+    pub fn frontend_put_message(&mut self, t: time::Instant, message: Vec<message::IntT>) {
         self.outbox_backend.push(BackendAction::SendText { s: message::Message::BroadcastMessage(message).to_string() });
     }
     pub fn frontend_get_connected(&mut self) -> bool {
