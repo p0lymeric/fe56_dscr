@@ -1,72 +1,24 @@
 use crate::dictionary::*;
-use crate::trie;
+use crate::case;
 
-use std::collections::BTreeMap;
 use std::collections::HashMap;
 
 use serde_json;
 
+// JSON dictionary
+// polymeric 2026
+
+// Implementation of a dictionary as stored by TMfDS.
+
 #[derive(Debug, Clone)]
 pub struct JsonDictionary {
     json: serde_json::Value,
-    lexicon: LexiconCompartment,
-    trie_casefold: trie::Trie,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-struct CasefoldableDefinition {
-    def: Definition,
-    word_casefold: String,
-}
-
-#[derive(Debug, Clone)]
-pub struct LexiconCompartment {
-    defs: BTreeMap<SymbolT, CasefoldableDefinition>,
-    revmap_exact: HashMap<String, Vec<SymbolT>>,
-    revmap_casefold: HashMap<String, Vec<SymbolT>>,
-    global_formatting: Formatting,
+    shadow: shadow::ShadowDictionary,
 }
 
 #[derive(Debug)]
 pub enum JsonDictionaryError {
     SerdeJsonError(serde_json::error::Error),
-}
-
-fn to_uppercase_simple(s: &str) -> String {
-    // Length-preserving, locale-independent uppercasing
-    // using Unicode's Simple_Uppercase_Mapping table (TR44)
-    s.chars().map(|x| {
-        fe56_ucd_sys::UPPERCASE_SIMPLE.binary_search_by_key(&x, |(k, _v)| *k).ok().map(|i| fe56_ucd_sys::UPPERCASE_SIMPLE[i].1).unwrap_or(x)
-    }).collect()
-}
-
-fn to_casefolded_full(s: &str) -> String {
-    // Length-changing, locale-independent case folding
-    // using Unicode's Case_Folding (C + F) table (TR44)
-    let mut result = String::with_capacity(s.len());
-    for x in s.chars() {
-        match fe56_ucd_sys::CASEFOLD_FULL.binary_search_by_key(&x, |(k, _v)| *k) {
-            Ok(i) => result.push_str(fe56_ucd_sys::CASEFOLD_FULL[i].1),
-            _ => result.push(x)
-        }
-    }
-    result
-}
-
-fn to_casefolded_full_offset(s: &str) -> Casefolded {
-    // Length-changing, locale-independent case folding
-    // using Unicode's Case_Folding (C + F) table (TR44)
-    let mut text_norm = String::with_capacity(s.len());
-    let mut offsets = Vec::with_capacity(s.len() + 1);
-    for (orig, x) in s.char_indices() {
-        offsets.push((orig, text_norm.len()));
-        match fe56_ucd_sys::CASEFOLD_FULL.binary_search_by_key(&x, |(k, _v)| *k) {
-            Ok(i) => text_norm.push_str(fe56_ucd_sys::CASEFOLD_FULL[i].1),
-            _ => text_norm.push(x)
-        }
-    }
-    offsets.push((s.len(), text_norm.len()));
-    Casefolded { text_norm, offsets }
 }
 
 impl JsonDictionary {
@@ -91,19 +43,16 @@ impl JsonDictionary {
             )
         };
 
-        let lexicon = Self::init_lexicon(&json)?;
-        let trie = Self::init_trie(&lexicon)?;
+        let shadow = Self::init_shadow(&json)?;
 
         Ok(Self {
             json,
-            lexicon,
-            trie_casefold: trie,
+            shadow,
         })
     }
 
-    fn init_lexicon(json: &serde_json::Value) -> Result<LexiconCompartment, JsonDictionaryError> {
-        // Currently doesn't error but instead tries to parse as much of the file as possible
-        let mut defs: BTreeMap<SymbolT, CasefoldableDefinition> = BTreeMap::new();
+    fn init_shadow(json: &serde_json::Value) -> Result<shadow::ShadowDictionary, JsonDictionaryError> {
+        let mut shadow = shadow::ShadowDictionary::new();
 
         let before = json["beforeUserDefaultMode"]
             .as_i64()
@@ -114,6 +63,7 @@ impl JsonDictionary {
             .and_then(|m| SpacingKind::try_from(m).ok())
             .unwrap_or(SpacingKind::Newline);
         let global_formatting = Formatting { before, after, break_on_double: false };
+        shadow.set_global_formatting(global_formatting);
 
         let word_dict = &json["wordDict"];
         let desc_dict = &json["descDict"];
@@ -141,119 +91,80 @@ impl JsonDictionary {
                     } else {
                         Definition { word: word.to_string(), desc: "??? ADD NOTES HERE ???".into(), format: global_formatting }
                     };
-                    defs.insert(id, CasefoldableDefinition { def, word_casefold: to_casefolded_full(word) });
+                    shadow.add(id, def);
                 }
             }
 
         }
 
-        let mut revmap_exact: HashMap<String, Vec<SymbolT>> = HashMap::new();
-        let mut revmap_casefold: HashMap<String, Vec<SymbolT>> = HashMap::new();
-        for(&id, def) in &defs {
-            revmap_exact.entry(def.def.word.clone()).or_default().push(id);
-            revmap_casefold.entry(def.word_casefold.clone()).or_default().push(id);
-        }
-
-        Ok(LexiconCompartment { defs, revmap_exact, revmap_casefold, global_formatting })
-    }
-
-    fn init_trie(lexicon: &LexiconCompartment) -> Result<trie::Trie, JsonDictionaryError> {
-        let mut result = trie::Trie::new();
-
-        for (id, def) in &lexicon.defs {
-            // TODO verify the BTreeMap's natural ID ordering is not the reverse expected by
-            // result.insert to prevent needing to shift the entire vector by 1 on each insert
-            result.insert(*id, &def.word_casefold);
-        }
-
-        Ok(result)
+        Ok(shadow)
     }
 }
 
 impl Dictionary for JsonDictionary {
     fn lookup_id(&self, id: SymbolT) -> Option<&Definition> {
-        self.lexicon.defs.get(&id).map(|x| &x.def)
+        self.shadow.lookup_id(id)
     }
 
     fn lookup_word(&self, word: &str, case_sensitive: bool) -> &[SymbolT] {
-        if case_sensitive {
-            self.lexicon.revmap_exact.get(word).map(Vec::as_slice).unwrap_or(&[])
-        } else {
-            self.lexicon.revmap_casefold.get(&to_casefolded_full(word)).map(Vec::as_slice).unwrap_or(&[])
-        }
+        self.shadow.lookup_word(word, case_sensitive)
     }
 
     fn global_formatting(&self) -> Formatting {
-        self.lexicon.global_formatting
+        self.shadow.global_formatting()
     }
 
     fn iter(&self) -> Box<dyn Iterator<Item = (&SymbolT, &Definition)> + '_> {
-        Box::new(self.lexicon.defs.iter().map(|(k, v)| (k, &v.def)))
+        self.shadow.iter()
     }
 
-    fn casefold(&self, text: &str) -> Casefolded {
-        to_casefolded_full_offset(text)
+    fn casefold(&self, text: &str) -> case::Casefolded {
+        self.shadow.casefold(text)
     }
 
-    fn tokenize_at(&self, text: &str, text_casefold: &Casefolded, start: usize) -> Vec<TokenizeResult> {
-        // text is used for verifying exact matches
-        if let Some(start_casefold) = text_casefold.to_casefold(start) {
-            self.trie_casefold.tokenize_at(&text_casefold.text_norm, start_casefold).iter().filter_map(|&coords| {
-                if let Some(end_orig) = text_casefold.to_orig(coords.end) {
-                    let exact_case = if let Some(def) = self.lexicon.defs.get(&coords.id) {
-                        text[start..end_orig] == def.def.word
-                    } else {
-                        false
-                    };
-                    Some(TokenizeResult {
-                        coords: TokenCoords {
-                            id: coords.id,
-                            start,
-                            end: end_orig,
-                        },
-                        exact_case
-                    })
-                } else { None }
-
-            }).collect()
-        } else {
-            Vec::new()
-        }
+    fn tokenize_at(&self, text: &str, text_casefold: &case::Casefolded, start: usize) -> Vec<TokenizeResult> {
+        self.shadow.tokenize_at(text, text_casefold, start)
     }
 
 }
+
 impl DictionaryMut for JsonDictionary {
     fn add(&mut self, id: SymbolT, def: Definition) -> bool {
-        let word_casefold = to_casefolded_full(&def.word);
-
-        if let std::collections::btree_map::Entry::Vacant(entry) = self.lexicon.defs.entry(id) {
-            let def = entry.insert(CasefoldableDefinition { def, word_casefold });
-            self.lexicon.revmap_exact.entry(def.def.word.clone()).or_default().push(id);
-            self.lexicon.revmap_casefold.entry(def.word_casefold.clone()).or_default().push(id);
-            self.trie_casefold.insert(id, &def.word_casefold);
-
-            // TODO update JSON view
-
+        if self.shadow.add(id, def) {
+            // TODO actually implement this, commenting to allow shadow to be tested
+            // todo!();
             return true;
         }
-
         false
     }
 
     fn remove(&mut self, id: SymbolT) -> bool {
-        todo!()
+        if self.shadow.remove(id) {
+            todo!();
+            return true;
+        }
+        false
     }
 
     fn rename(&mut self, from: SymbolT, to: SymbolT) -> bool {
-        todo!()
+        if self.shadow.rename(from, to) {
+            todo!();
+            return true;
+        }
+        false
     }
 
     fn lookup_id_mut(&mut self, id: SymbolT) -> Option<&mut Definition> {
+        // FIXME need to make this flush to the JSON file
         todo!()
     }
 
     fn set_global_formatting(&mut self, formatting: Formatting) -> bool {
-        todo!()
+        if self.shadow.set_global_formatting(formatting) {
+            todo!();
+            return true;
+        }
+        false
     }
 }
 

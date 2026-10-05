@@ -3,6 +3,12 @@ use crate::dictionary::{self, SpacingKind};
 use std::range::Range;
 use std::fmt::Write;
 
+// Signal compiler interface
+// polymeric 2026
+
+// Symbolizers transform a text sequence to a sequence of symbol tokens.
+// Desymbolizers format a sequence of symbol tokens to text.
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SymbolizerErrorKind {
     // Game errors:

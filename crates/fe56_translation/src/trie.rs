@@ -1,25 +1,32 @@
-use crate::dictionary;
-
 use std::collections::HashMap;
 
 // Trie for whole-dictionary prefix matching
+// polymeric 2026
 
 // TODO The interface should be generalized to work with raw byte sequences
 // to avoid needing to directly handle the fact that some UTF-8 codepoints span
 // multiple bytes in the trie itself.
 
 #[derive(Debug, Clone)]
-pub struct Trie {
-    root: TrieNode
+pub struct Trie<T> {
+    root: TrieNode<T>
 }
 
 #[derive(Debug, Clone)]
-pub struct TrieNode {
-    children: HashMap<char, TrieNode>,
-    ids: Vec<dictionary::SymbolT>,
+pub struct TrieNode<T> {
+    children: HashMap<char, TrieNode<T>>,
+    ids: Vec<T>,
 }
 
-impl TrieNode {
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct TrieCoords<T> {
+    pub id: T,
+    // these are byte offsets, not character offsets!
+    pub start: usize,
+    pub end: usize,
+}
+
+impl<T> TrieNode<T> {
     pub fn new() -> Self {
         TrieNode {
             children: HashMap::new(),
@@ -28,20 +35,20 @@ impl TrieNode {
     }
 }
 
-impl Default for TrieNode {
+impl<T> Default for TrieNode<T> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl Trie {
+impl<T: Ord + Copy> Trie<T> {
     pub fn new() -> Self {
         Self {
             root: TrieNode::new()
         }
     }
 
-    pub fn insert(&mut self, id: dictionary::SymbolT, word: &str) -> bool {
+    pub fn insert(&mut self, id: T, word: &str) -> bool {
         let mut terminal_node = &mut self.root;
         for c in word.chars() {
             terminal_node = terminal_node.children.entry(c).or_default();
@@ -53,7 +60,7 @@ impl Trie {
         true
     }
 
-    pub fn search(&self, word: &str) -> &[dictionary::SymbolT] {
+    pub fn search(&self, word: &str) -> &[T] {
         let mut next_node = &self.root;
         for c in word.chars() {
             let maybe_next_node = next_node.children.get(&c);
@@ -66,7 +73,7 @@ impl Trie {
         next_node.ids.as_slice()
     }
 
-    pub fn delete(&mut self, id: dictionary::SymbolT, word: &str) -> bool {
+    pub fn delete(&mut self, id: T, word: &str) -> bool {
         let mut next_node = &self.root;
         let mut deepest_cousin_branch = 0;
 
@@ -108,15 +115,15 @@ impl Trie {
         true
     }
 
-    pub fn tokenize_at(&self, text: &str, start: usize) -> Vec<dictionary::TokenCoords> {
-        let mut result: Vec<dictionary::TokenCoords> = Vec::new();
+    pub fn tokenize_at(&self, text: &str, start: usize) -> Vec<TrieCoords<T>> {
+        let mut result: Vec<TrieCoords<T>> = Vec::new();
         if start >= text.len() {
             return result;
         }
         let mut next_node = &self.root;
         for id in &next_node.ids {
             // Evil zero-length match. Perhaps this should be disallowed...
-            result.push(dictionary::TokenCoords { id: *id, start, end: start });
+            result.push(TrieCoords { id: *id, start, end: start });
         }
         for (off, c) in text[start..].char_indices() {
             let maybe_next_node = next_node.children.get(&c);
@@ -124,7 +131,7 @@ impl Trie {
                 next_node = nnext_node;
                 for id in &next_node.ids {
                     // Remember that UTF-8 characters span multiple bytes (c.len_utf8() is past the end character)
-                    result.push(dictionary::TokenCoords { id: *id, start, end: start + off + c.len_utf8() });
+                    result.push(TrieCoords { id: *id, start, end: start + off + c.len_utf8() });
                 }
             } else {
                 break;
@@ -134,7 +141,7 @@ impl Trie {
     }
 }
 
-impl Default for Trie {
+impl<T: Ord + Copy> Default for Trie<T> {
     fn default() -> Self {
         Self::new()
     }
