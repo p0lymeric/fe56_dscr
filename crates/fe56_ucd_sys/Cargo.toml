@@ -1,0 +1,11 @@
+[package]
+name = "fe56_ucd_sys"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+
+[features]
+default = ["run-codegen-and-use-output"]
+run-codegen-and-use-output = []
+run-codegen-and-copy-to-tree = []

@@ -33,24 +33,40 @@ pub enum JsonDictionaryError {
 }
 
 fn to_uppercase_simple(s: &str) -> String {
-    // Length preserving, locale-independent uppercasing
-    // TODO replace with Simple_Uppercase_Mapping (UnicodeData.txt)
+    // Length-preserving, locale-independent uppercasing
+    // using Unicode's Simple_Uppercase_Mapping table (TR44)
     s.chars().map(|x| {
-        let mut u = x.to_uppercase();
-        let maybe_c0 = u.next();
-        if let Some(c0) = maybe_c0 && u.next().is_none() {
-            c0
-        } else {
-            x
-        }
+        fe56_ucd_sys::UPPERCASE_SIMPLE.binary_search_by_key(&x, |(k, _v)| *k).ok().map(|i| fe56_ucd_sys::UPPERCASE_SIMPLE[i].1).unwrap_or(x)
     }).collect()
 }
 
 fn to_casefolded_full(s: &str) -> String {
-    // Locale-independent case folding
-    // TODO replace with C + F casefolding (CaseFolding.txt)
-    // to_uppercase_simple(s)
-    s.to_uppercase()
+    // Length-changing, locale-independent case folding
+    // using Unicode's Case_Folding (C + F) table (TR44)
+    let mut result = String::with_capacity(s.len());
+    for x in s.chars() {
+        match fe56_ucd_sys::CASEFOLD_FULL.binary_search_by_key(&x, |(k, _v)| *k) {
+            Ok(i) => result.push_str(fe56_ucd_sys::CASEFOLD_FULL[i].1),
+            _ => result.push(x)
+        }
+    }
+    result
+}
+
+fn to_casefolded_full_offset(s: &str) -> Casefolded {
+    // Length-changing, locale-independent case folding
+    // using Unicode's Case_Folding (C + F) table (TR44)
+    let mut text_norm = String::with_capacity(s.len());
+    let mut offsets = Vec::with_capacity(s.len() + 1);
+    for (orig, x) in s.char_indices() {
+        offsets.push((orig, text_norm.len()));
+        match fe56_ucd_sys::CASEFOLD_FULL.binary_search_by_key(&x, |(k, _v)| *k) {
+            Ok(i) => text_norm.push_str(fe56_ucd_sys::CASEFOLD_FULL[i].1),
+            _ => text_norm.push(x)
+        }
+    }
+    offsets.push((s.len(), text_norm.len()));
+    Casefolded { text_norm, offsets }
 }
 
 impl JsonDictionary {
@@ -175,21 +191,36 @@ impl Dictionary for JsonDictionary {
         Box::new(self.lexicon.defs.iter().map(|(k, v)| (k, &v.def)))
     }
 
-    fn tokenize_at(&self, text: &str, text_norm: Option<&str>, start: usize) -> Vec<TokenizeResult> {
-        let t = text_norm.unwrap_or(text);
-        self.trie_casefold.tokenize_at(t, start).iter().map(|&coords| {
-            let exact_case = if let Some(def) = self.lexicon.defs.get(&coords.id) {
-                // FIXME casefolding can change string length
-                text[start..coords.end] == def.def.word
-            } else {
-                false
-            };
-            TokenizeResult {
-                coords,
-                exact_case
-            }
-        }).collect()
+    fn casefold(&self, text: &str) -> Casefolded {
+        to_casefolded_full_offset(text)
     }
+
+    fn tokenize_at(&self, text: &str, text_casefold: &Casefolded, start: usize) -> Vec<TokenizeResult> {
+        // text is used for verifying exact matches
+        if let Some(start_casefold) = text_casefold.to_casefold(start) {
+            self.trie_casefold.tokenize_at(&text_casefold.text_norm, start_casefold).iter().filter_map(|&coords| {
+                if let Some(end_orig) = text_casefold.to_orig(coords.end) {
+                    let exact_case = if let Some(def) = self.lexicon.defs.get(&coords.id) {
+                        text[start..end_orig] == def.def.word
+                    } else {
+                        false
+                    };
+                    Some(TokenizeResult {
+                        coords: TokenCoords {
+                            id: coords.id,
+                            start,
+                            end: end_orig,
+                        },
+                        exact_case
+                    })
+                } else { None }
+
+            }).collect()
+        } else {
+            Vec::new()
+        }
+    }
+
 }
 impl DictionaryMut for JsonDictionary {
     fn add(&mut self, id: SymbolT, def: Definition) -> bool {
@@ -202,9 +233,11 @@ impl DictionaryMut for JsonDictionary {
             self.trie_casefold.insert(id, &def.word_casefold);
 
             // TODO update JSON view
+
+            return true;
         }
 
-        true
+        false
     }
 
     fn remove(&mut self, id: SymbolT) -> bool {
@@ -264,20 +297,21 @@ mod tests {
         assert_eq!(dict.lookup_word("WARD", false), &[-2]);
         assert_eq!(dict.lookup_word("UNTOWARD", true), &[-3]);
     }
+
     #[test]
     fn test_tokenize_at_simple() {
         let dict = make_dict_untoward();
 
-        let untoward_case_folded = to_casefolded_full("untoward");
+        let untoward_case_folded = dict.casefold("untoward");
 
-        assert_eq!(dict.tokenize_at(&untoward_case_folded, None, 0), &[TokenizeResult { coords: TokenCoords { id: -1, start: 0, end: 4 }, exact_case: true }, TokenizeResult { coords: TokenCoords { id: -3, start: 0, end: 8 }, exact_case: true }]);
-        assert_eq!(dict.tokenize_at(&untoward_case_folded, None, 1), &[] as &[TokenizeResult]);
-        assert_eq!(dict.tokenize_at(&untoward_case_folded, None, 4), &[TokenizeResult { coords: TokenCoords { id: -2, start: 4, end: 8 }, exact_case: true }]);
-        assert_eq!(dict.tokenize_at(&untoward_case_folded, None, 5), &[] as &[TokenizeResult]);
+        assert_eq!(dict.tokenize_at("UNTOWARD", &untoward_case_folded, 0), &[TokenizeResult { coords: TokenCoords { id: -1, start: 0, end: 4 }, exact_case: true }, TokenizeResult { coords: TokenCoords { id: -3, start: 0, end: 8 }, exact_case: true }]);
+        assert_eq!(dict.tokenize_at("UNTOWARD", &untoward_case_folded, 1), &[] as &[TokenizeResult]);
+        assert_eq!(dict.tokenize_at("UNTOWARD", &untoward_case_folded, 4), &[TokenizeResult { coords: TokenCoords { id: -2, start: 4, end: 8 }, exact_case: true }]);
+        assert_eq!(dict.tokenize_at("UNTOWARD", &untoward_case_folded, 5), &[] as &[TokenizeResult]);
 
         // panic!("{:?}", dict.tokenize_at("untoWARD", Some(&untoward_case_folded), 0));
-        assert_eq!(dict.tokenize_at("untoWARD", Some(&untoward_case_folded), 0), &[TokenizeResult { coords: TokenCoords { id: -1, start: 0, end: 4 }, exact_case: false }, TokenizeResult { coords: TokenCoords { id: -3, start: 0, end: 8 }, exact_case: false }]);
-        assert_eq!(dict.tokenize_at("untoWARD", Some(&untoward_case_folded), 4), &[TokenizeResult { coords: TokenCoords { id: -2, start: 4, end: 8 }, exact_case: true }]);
+        assert_eq!(dict.tokenize_at("untoWARD", &untoward_case_folded, 0), &[TokenizeResult { coords: TokenCoords { id: -1, start: 0, end: 4 }, exact_case: false }, TokenizeResult { coords: TokenCoords { id: -3, start: 0, end: 8 }, exact_case: false }]);
+        assert_eq!(dict.tokenize_at("untoWARD", &untoward_case_folded, 4), &[TokenizeResult { coords: TokenCoords { id: -2, start: 4, end: 8 }, exact_case: true }]);
     }
 
     #[test]
@@ -288,11 +322,10 @@ mod tests {
         dict.add(-3, Definition { word: "fus".to_string(), desc: "desc".to_string(), format: dict.global_formatting() });
 
         let sus = "FUSSY fußy fus sus 🫪 susSy ß";
-        let sus_case_folded = to_casefolded_full(sus);
-        assert_eq!(sus_case_folded, to_casefolded_full("fussy fussy fus sus 🫪 sussy ss"));
+        let sus_case_folded = dict.casefold(sus);
 
-        panic!("{:?}", dict.tokenize_at(sus, Some(&sus_case_folded), 0));
-
-        todo!()
+        // panic!("{:?}", dict.tokenize_at(sus, &sus_case_folded, 0));
+        assert_eq!(dict.tokenize_at(sus, &sus_case_folded, 0), &[TokenizeResult { coords: TokenCoords { id: -3, start: 0, end: 3 }, exact_case: false }, TokenizeResult { coords: TokenCoords { id: -2, start: 0, end: 5 }, exact_case: true }, TokenizeResult { coords: TokenCoords { id: -1, start: 0, end: 5 }, exact_case: false }]);
+        // TODO more predictions
     }
 }

@@ -110,6 +110,9 @@ impl Trie {
 
     pub fn tokenize_at(&self, text: &str, start: usize) -> Vec<dictionary::TokenCoords> {
         let mut result: Vec<dictionary::TokenCoords> = Vec::new();
+        if start >= text.len() {
+            return result;
+        }
         let mut next_node = &self.root;
         for id in &next_node.ids {
             // Evil zero-length match. Perhaps this should be disallowed...

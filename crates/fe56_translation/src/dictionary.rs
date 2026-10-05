@@ -1,4 +1,4 @@
-mod json;
+pub mod json;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum SpacingKind {
@@ -70,6 +70,21 @@ pub struct TokenizeResult {
     pub exact_case: bool,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Casefolded {
+    pub text_norm: String,
+    pub offsets: Vec<(usize, usize)>,
+}
+
+impl Casefolded {
+    pub fn to_orig(&self, offset: usize) -> Option<usize> {
+       self.offsets.binary_search_by_key(&offset, |(_orig, casefold)| *casefold).ok().map(|i| self.offsets[i].0)
+    }
+    pub fn to_casefold(&self, offset: usize) -> Option<usize> {
+        self.offsets.binary_search_by_key(&offset, |(orig, _casefold)| *orig).ok().map(|i| self.offsets[i].1)
+    }
+}
+
 pub trait Dictionary {
     fn lookup_id(&self, id: SymbolT) -> Option<&Definition>;
     fn lookup_word(&self, word: &str, case_sensitive: bool) -> &[SymbolT];
@@ -77,7 +92,8 @@ pub trait Dictionary {
 
     fn iter(&self) -> Box<dyn Iterator<Item = (&SymbolT, &Definition)> + '_>;
 
-    fn tokenize_at(&self, text: &str, text_norm: Option<&str>, start: usize) -> Vec<TokenizeResult>;
+    fn casefold(&self, text: &str) -> Casefolded;
+    fn tokenize_at(&self, text: &str, text_casefold: &Casefolded, start: usize) -> Vec<TokenizeResult>;
 }
 
 pub trait DictionaryMut {

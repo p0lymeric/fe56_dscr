@@ -5,6 +5,7 @@ members = [
     "crates/fe56_dscr_protocol",
     "crates/fe56_app",
     "crates/fe56_translation",
+    "crates/fe56_ucd_sys",
 ]
 
 [workspace.dependencies]

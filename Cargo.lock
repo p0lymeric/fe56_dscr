@@ -182,8 +182,13 @@ version = "0.1.0"
 name = "fe56_translation"
 version = "0.1.0"
 dependencies = [
+ "fe56_ucd_sys",
  "serde_json",
 ]
+
+[[package]]
+name = "fe56_ucd_sys"
+version = "0.1.0"
 
 [[package]]
 name = "find-msvc-tools"
