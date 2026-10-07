@@ -63,7 +63,7 @@ impl JsonDictionary {
             .and_then(|m| SpacingKind::try_from(m).ok())
             .unwrap_or(SpacingKind::Newline);
         let global_formatting = Formatting { before, after, break_on_double: false };
-        shadow.set_global_formatting(global_formatting);
+        shadow.set_global_format(global_formatting);
 
         let word_dict = &json["wordDict"];
         let desc_dict = &json["descDict"];
@@ -102,16 +102,16 @@ impl JsonDictionary {
 }
 
 impl Dictionary for JsonDictionary {
-    fn lookup_id(&self, id: SymbolT) -> Option<&Definition> {
-        self.shadow.lookup_id(id)
+    fn get(&self, id: SymbolT) -> Option<&Definition> {
+        self.shadow.get(id)
     }
 
-    fn lookup_word(&self, word: &str, case_sensitive: bool) -> &[SymbolT] {
-        self.shadow.lookup_word(word, case_sensitive)
+    fn lookup(&self, word: &str, case_sensitive: bool) -> &[SymbolT] {
+        self.shadow.lookup(word, case_sensitive)
     }
 
-    fn global_formatting(&self) -> Formatting {
-        self.shadow.global_formatting()
+    fn global_format(&self) -> Formatting {
+        self.shadow.global_format()
     }
 
     fn iter(&self) -> Box<dyn Iterator<Item = (&SymbolT, &Definition)> + '_> {
@@ -146,21 +146,21 @@ impl DictionaryMut for JsonDictionary {
         false
     }
 
-    fn rename(&mut self, from: SymbolT, to: SymbolT) -> bool {
-        if self.shadow.rename(from, to) {
+    fn relink(&mut self, from: SymbolT, to: SymbolT) -> bool {
+        if self.shadow.relink(from, to) {
             todo!();
             return true;
         }
         false
     }
 
-    fn lookup_id_mut(&mut self, id: SymbolT) -> Option<&mut Definition> {
+    fn edit(&mut self, id: SymbolT, f: &mut dyn FnMut(&mut Definition)) -> bool {
         // FIXME need to make this flush to the JSON file
         todo!()
     }
 
-    fn set_global_formatting(&mut self, formatting: Formatting) -> bool {
-        if self.shadow.set_global_formatting(formatting) {
+    fn set_global_format(&mut self, formatting: Formatting) -> bool {
+        if self.shadow.set_global_format(formatting) {
             todo!();
             return true;
         }
@@ -183,9 +183,9 @@ mod tests {
 
     fn make_dict_untoward() -> JsonDictionary {
         let mut dict = JsonDictionary::new(None).expect("Failed to construct empty Dictionary");
-        dict.add(-1, Definition { word: "UNTO".to_string(), desc: "desc".to_string(), format: dict.global_formatting() });
-        dict.add(-2, Definition { word: "WARD".to_string(), desc: "desc".to_string(), format: dict.global_formatting() });
-        dict.add(-3, Definition { word: "UNTOWARD".to_string(), desc: "desc".to_string(), format: dict.global_formatting() });
+        dict.add(-1, Definition { word: "UNTO".to_string(), desc: "desc".to_string(), format: dict.global_format() });
+        dict.add(-2, Definition { word: "WARD".to_string(), desc: "desc".to_string(), format: dict.global_format() });
+        dict.add(-3, Definition { word: "UNTOWARD".to_string(), desc: "desc".to_string(), format: dict.global_format() });
         dict
     }
 
@@ -199,14 +199,14 @@ mod tests {
     fn test_lookups() {
         let dict = make_dict_untoward();
 
-        assert_eq!(dict.lookup_id(-1).expect("Can't find -1").word, "UNTO");
-        assert_eq!(dict.lookup_id(-2).expect("Can't find -2").word, "WARD");
-        assert_eq!(dict.lookup_id(-3).expect("Can't find -3").word, "UNTOWARD");
+        assert_eq!(dict.get(-1).expect("Can't find -1").word, "UNTO");
+        assert_eq!(dict.get(-2).expect("Can't find -2").word, "WARD");
+        assert_eq!(dict.get(-3).expect("Can't find -3").word, "UNTOWARD");
 
-        assert_eq!(dict.lookup_word("uNTO", false), &[-1]);
-        assert_eq!(dict.lookup_word("uNTO", true), &[] as &[SymbolT]);
-        assert_eq!(dict.lookup_word("WARD", false), &[-2]);
-        assert_eq!(dict.lookup_word("UNTOWARD", true), &[-3]);
+        assert_eq!(dict.lookup("uNTO", false), &[-1]);
+        assert_eq!(dict.lookup("uNTO", true), &[] as &[SymbolT]);
+        assert_eq!(dict.lookup("WARD", false), &[-2]);
+        assert_eq!(dict.lookup("UNTOWARD", true), &[-3]);
     }
 
     #[test]
@@ -215,28 +215,28 @@ mod tests {
 
         let untoward_case_folded = dict.casefold("untoward");
 
-        assert_eq!(dict.tokenize_at("UNTOWARD", &untoward_case_folded, 0), &[TokenizeResult { coords: TokenCoords { id: -1, start: 0, end: 4 }, exact_case: true }, TokenizeResult { coords: TokenCoords { id: -3, start: 0, end: 8 }, exact_case: true }]);
+        assert_eq!(dict.tokenize_at("UNTOWARD", &untoward_case_folded, 0), &[TokenizeResult { id: -1, start: 0, end: 4, exact_case: true }, TokenizeResult { id: -3, start: 0, end: 8, exact_case: true }]);
         assert_eq!(dict.tokenize_at("UNTOWARD", &untoward_case_folded, 1), &[] as &[TokenizeResult]);
-        assert_eq!(dict.tokenize_at("UNTOWARD", &untoward_case_folded, 4), &[TokenizeResult { coords: TokenCoords { id: -2, start: 4, end: 8 }, exact_case: true }]);
+        assert_eq!(dict.tokenize_at("UNTOWARD", &untoward_case_folded, 4), &[TokenizeResult { id: -2, start: 4, end: 8, exact_case: true }]);
         assert_eq!(dict.tokenize_at("UNTOWARD", &untoward_case_folded, 5), &[] as &[TokenizeResult]);
 
         // panic!("{:?}", dict.tokenize_at("untoWARD", Some(&untoward_case_folded), 0));
-        assert_eq!(dict.tokenize_at("untoWARD", &untoward_case_folded, 0), &[TokenizeResult { coords: TokenCoords { id: -1, start: 0, end: 4 }, exact_case: false }, TokenizeResult { coords: TokenCoords { id: -3, start: 0, end: 8 }, exact_case: false }]);
-        assert_eq!(dict.tokenize_at("untoWARD", &untoward_case_folded, 4), &[TokenizeResult { coords: TokenCoords { id: -2, start: 4, end: 8 }, exact_case: true }]);
+        assert_eq!(dict.tokenize_at("untoWARD", &untoward_case_folded, 0), &[TokenizeResult { id: -1, start: 0, end: 4, exact_case: false }, TokenizeResult { id: -3, start: 0, end: 8, exact_case: false }]);
+        assert_eq!(dict.tokenize_at("untoWARD", &untoward_case_folded, 4), &[TokenizeResult { id: -2, start: 4, end: 8, exact_case: true }]);
     }
 
     #[test]
     fn test_tokenize_at_full() {
         let mut dict = JsonDictionary::new(None).expect("Failed to construct empty Dictionary");
-        dict.add(-1, Definition { word: "fußy".to_string(), desc: "desc".to_string(), format: dict.global_formatting() });
-        dict.add(-2, Definition { word: "FUSSY".to_string(), desc: "desc".to_string(), format: dict.global_formatting() });
-        dict.add(-3, Definition { word: "fus".to_string(), desc: "desc".to_string(), format: dict.global_formatting() });
+        dict.add(-1, Definition { word: "fußy".to_string(), desc: "desc".to_string(), format: dict.global_format() });
+        dict.add(-2, Definition { word: "FUSSY".to_string(), desc: "desc".to_string(), format: dict.global_format() });
+        dict.add(-3, Definition { word: "fus".to_string(), desc: "desc".to_string(), format: dict.global_format() });
 
         let sus = "FUSSY fußy fus sus 🫪 susSy ß";
         let sus_case_folded = dict.casefold(sus);
 
         // panic!("{:?}", dict.tokenize_at(sus, &sus_case_folded, 0));
-        assert_eq!(dict.tokenize_at(sus, &sus_case_folded, 0), &[TokenizeResult { coords: TokenCoords { id: -3, start: 0, end: 3 }, exact_case: false }, TokenizeResult { coords: TokenCoords { id: -2, start: 0, end: 5 }, exact_case: true }, TokenizeResult { coords: TokenCoords { id: -1, start: 0, end: 5 }, exact_case: false }]);
+        assert_eq!(dict.tokenize_at(sus, &sus_case_folded, 0), &[TokenizeResult { id: -3, start: 0, end: 3, exact_case: false }, TokenizeResult { id: -2, start: 0, end: 5, exact_case: true }, TokenizeResult { id: -1, start: 0, end: 5, exact_case: false }]);
         // TODO more predictions
     }
 }

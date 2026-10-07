@@ -3,10 +3,6 @@ use std::collections::HashMap;
 // Trie for whole-dictionary prefix matching
 // polymeric 2026
 
-// TODO The interface should be generalized to work with raw byte sequences
-// to avoid needing to directly handle the fact that some UTF-8 codepoints span
-// multiple bytes in the trie itself.
-
 #[derive(Debug, Clone)]
 pub struct Trie<T> {
     root: TrieNode<T>
@@ -19,11 +15,9 @@ pub struct TrieNode<T> {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct TrieCoords<T> {
+pub struct TriePrefix<T> {
     pub id: T,
-    // these are byte offsets, not character offsets!
-    pub start: usize,
-    pub end: usize,
+    pub length: usize,
 }
 
 impl<T> TrieNode<T> {
@@ -115,23 +109,21 @@ impl<T: Ord + Copy> Trie<T> {
         true
     }
 
-    pub fn tokenize_at(&self, text: &str, start: usize) -> Vec<TrieCoords<T>> {
-        let mut result: Vec<TrieCoords<T>> = Vec::new();
-        if start >= text.len() {
-            return result;
-        }
+    pub fn prefixes(&self, text: &str) -> Vec<TriePrefix<T>> {
+        let mut result: Vec<TriePrefix<T>> = Vec::new();
         let mut next_node = &self.root;
         for id in &next_node.ids {
             // Evil zero-length match. Perhaps this should be disallowed...
-            result.push(TrieCoords { id: *id, start, end: start });
+            result.push(TriePrefix { id: *id, length: 0 });
         }
-        for (off, c) in text[start..].char_indices() {
+        for (off, c) in text.char_indices() {
             let maybe_next_node = next_node.children.get(&c);
             if let Some(nnext_node) = maybe_next_node {
                 next_node = nnext_node;
                 for id in &next_node.ids {
-                    // Remember that UTF-8 characters span multiple bytes (c.len_utf8() is past the end character)
-                    result.push(TrieCoords { id: *id, start, end: start + off + c.len_utf8() });
+                    // Remember that UTF-8 characters span a variable number of bytes
+                    // "off + c.len_utf8()" points to one past the end of the current character
+                    result.push(TriePrefix { id: *id, length: off + c.len_utf8() });
                 }
             } else {
                 break;

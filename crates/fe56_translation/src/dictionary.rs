@@ -17,6 +17,7 @@ pub enum SpacingKind {
     Newline = 2,
     TwoNewline = 3,
 }
+
 impl SpacingKind {
     pub fn as_str(&self) -> &str {
         match self {
@@ -73,23 +74,19 @@ pub struct Definition {
 pub type SymbolT = i64;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct TokenCoords {
+pub struct TokenizeResult {
     pub id: SymbolT,
     // these are byte offsets, not character offsets!
     pub start: usize,
     pub end: usize,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct TokenizeResult {
-    pub coords: TokenCoords,
     pub exact_case: bool,
 }
 
 pub trait Dictionary {
-    fn lookup_id(&self, id: SymbolT) -> Option<&Definition>;
-    fn lookup_word(&self, word: &str, case_sensitive: bool) -> &[SymbolT];
-    fn global_formatting(&self) -> Formatting;
+    fn get(&self, id: SymbolT) -> Option<&Definition>;
+    fn lookup(&self, word: &str, case_sensitive: bool) -> &[SymbolT];
+
+    fn global_format(&self) -> Formatting;
 
     fn iter(&self) -> Box<dyn Iterator<Item = (&SymbolT, &Definition)> + '_>;
 
@@ -100,8 +97,8 @@ pub trait Dictionary {
 pub trait DictionaryMut {
     fn add(&mut self, id: SymbolT, def: Definition) -> bool;
     fn remove(&mut self, id: SymbolT) -> bool;
-    fn rename(&mut self, from: SymbolT, to: SymbolT) -> bool;
-    fn lookup_id_mut(&mut self, id: SymbolT) -> Option<&mut Definition>;
+    fn relink(&mut self, from: SymbolT, to: SymbolT) -> bool;
+    fn edit(&mut self, id: SymbolT, f: &mut dyn FnMut(&mut Definition)) -> bool;
 
-    fn set_global_formatting(&mut self, formatting: Formatting) -> bool;
+    fn set_global_format(&mut self, formatting: Formatting) -> bool;
 }

@@ -3,7 +3,6 @@ use crate::trie;
 use crate::case;
 
 use std::collections::BTreeMap;
-use std::collections::HashMap;
 
 // In-memory dictionary implementation
 // polymeric 2026
@@ -14,9 +13,8 @@ use std::collections::HashMap;
 #[derive(Debug, Clone)]
 pub struct ShadowDictionary {
     defs: BTreeMap<SymbolT, CasefoldableDefinition>,
-    global_formatting: Formatting,
-    revmap_exact: HashMap<String, Vec<SymbolT>>,
-    revmap_casefold: HashMap<String, Vec<SymbolT>>,
+    global_format: Formatting,
+    trie_exact: trie::Trie<SymbolT>,
     trie_casefold: trie::Trie<SymbolT>,
 }
 
@@ -30,29 +28,28 @@ impl ShadowDictionary {
     pub fn new() -> Self {
         Self {
             defs: BTreeMap::new(),
-            global_formatting: Formatting::DEFAULT,
-            revmap_exact: HashMap::new(),
-            revmap_casefold: HashMap::new(),
+            global_format: Formatting::DEFAULT,
+            trie_exact: trie::Trie::new(),
             trie_casefold: trie::Trie::new(),
         }
     }
 }
 
 impl Dictionary for ShadowDictionary {
-    fn lookup_id(&self, id: SymbolT) -> Option<&Definition> {
+    fn get(&self, id: SymbolT) -> Option<&Definition> {
         self.defs.get(&id).map(|x| &x.def)
     }
 
-    fn lookup_word(&self, word: &str, case_sensitive: bool) -> &[SymbolT] {
+    fn lookup(&self, word: &str, case_sensitive: bool) -> &[SymbolT] {
         if case_sensitive {
-            self.revmap_exact.get(word).map(Vec::as_slice).unwrap_or(&[])
+            self.trie_exact.search(word)
         } else {
-            self.revmap_casefold.get(&case::to_casefolded_full(word)).map(Vec::as_slice).unwrap_or(&[])
+            self.trie_casefold.search(&case::to_casefolded_full(word))
         }
     }
 
-    fn global_formatting(&self) -> Formatting {
-        self.global_formatting
+    fn global_format(&self) -> Formatting {
+        self.global_format
     }
 
     fn iter(&self) -> Box<dyn Iterator<Item = (&SymbolT, &Definition)> + '_> {
@@ -66,19 +63,17 @@ impl Dictionary for ShadowDictionary {
     fn tokenize_at(&self, text: &str, text_casefold: &case::Casefolded, start: usize) -> Vec<TokenizeResult> {
         // text is used for verifying exact matches
         if let Some(start_casefold) = text_casefold.to_casefold(start) {
-            self.trie_casefold.tokenize_at(&text_casefold.text_norm, start_casefold).iter().filter_map(|&coords| {
-                if let Some(end_orig) = text_casefold.to_orig(coords.end) {
-                    let exact_case = if let Some(def) = self.defs.get(&coords.id) {
+            self.trie_casefold.prefixes(&text_casefold.text_norm[start_casefold..]).iter().filter_map(|&prefix| {
+                if let Some(end_orig) = text_casefold.to_orig(start + prefix.length) {
+                    let exact_case = if let Some(def) = self.defs.get(&prefix.id) {
                         text[start..end_orig] == def.def.word
                     } else {
                         false
                     };
                     Some(TokenizeResult {
-                        coords: TokenCoords {
-                            id: coords.id,
-                            start,
-                            end: end_orig,
-                        },
+                        id: prefix.id,
+                        start,
+                        end: end_orig,
                         exact_case
                     })
                 } else { None }
@@ -95,10 +90,10 @@ impl DictionaryMut for ShadowDictionary {
     fn add(&mut self, id: SymbolT, def: Definition) -> bool {
         let word_casefold = case::to_casefolded_full(&def.word);
 
-        if let std::collections::btree_map::Entry::Vacant(entry) = self.defs.entry(id) {
+        use std::collections::btree_map::Entry;
+        if let Entry::Vacant(entry) = self.defs.entry(id) {
             let def = entry.insert(CasefoldableDefinition { def, word_casefold });
-            self.revmap_exact.entry(def.def.word.clone()).or_default().push(id);
-            self.revmap_casefold.entry(def.word_casefold.clone()).or_default().push(id);
+            self.trie_exact.insert(id, &def.def.word);
             self.trie_casefold.insert(id, &def.word_casefold);
 
             return true;
@@ -111,16 +106,24 @@ impl DictionaryMut for ShadowDictionary {
         todo!()
     }
 
-    fn rename(&mut self, from: SymbolT, to: SymbolT) -> bool {
+    fn relink(&mut self, from: SymbolT, to: SymbolT) -> bool {
         todo!()
     }
 
-    fn lookup_id_mut(&mut self, id: SymbolT) -> Option<&mut Definition> {
+    fn edit(&mut self, id: SymbolT, f: &mut dyn FnMut(&mut Definition)) -> bool {
+        // if let Some(def) = self.defs.get_mut(&id) {
+        //     f(&mut def.def);
+        //     // TODO modify in trie
+        //     def.word_casefold = case::to_casefolded_full(&def.def.word);
+        //     return true;
+        // }
+
+        // false
         todo!()
     }
 
-    fn set_global_formatting(&mut self, formatting: Formatting) -> bool {
-        self.global_formatting = formatting;
+    fn set_global_format(&mut self, formatting: Formatting) -> bool {
+        self.global_format = formatting;
         true
     }
 }
