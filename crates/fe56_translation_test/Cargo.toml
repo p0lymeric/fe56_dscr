@@ -1,0 +1,9 @@
+[package]
+name = "fe56_translation_test"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+fe56_translation = { path = "../fe56_translation" }
+egui = "0.36.2"
+eframe = { version = "0.36.2", default-features = false, features = ["glow"] }

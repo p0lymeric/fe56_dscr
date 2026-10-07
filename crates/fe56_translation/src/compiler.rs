@@ -139,7 +139,7 @@ impl Symbolizer for MwisSymbolizer {
         // A resultant schedule with maximum ("optimal") score has a path weight that:
         // W1. covers as many non-whitespace bytes in the text string as possible
         // W2. with the fewest covering tokens
-        // W3. pritoritizing bare IDs
+        // W3. prioritizing bare IDs
         // W4. over potentially case-inexact words
         // W5. over exact words
         // W6. over numbers
@@ -214,21 +214,62 @@ impl Symbolizer for MwisSymbolizer {
 
         let mut errors: Vec<SymbolizerError> = Vec::new();
 
-        // if final_schedules.len() > 1 {
-        //     let h1 = final_schedules[1].iter().rev().map(|j| {
-        //         let tk = token_candidates[*j - 1];
-        //         SymbolizerToken {
-        //             id: tk.id,
-        //             span: (tk.start..tk.end).into(),
-        //         }
-        //     }).collect::<HashSet<SymbolizerToken>>();
-        //     let h0: HashSet<SymbolizerToken> = s0.iter().copied().collect();
-        //     let left_difference = h0.difference(&h1).copied().collect::<Vec<SymbolizerToken>>().sort_by_key(|x| x.span.start);
-        //     let right_difference = h1.difference(&h0).copied().collect::<Vec<SymbolizerToken>>().sort_by_key(|x| x.span.start);
-        //     // Identify abutted spans
-        //     let start =
-        //     errors.push(SymbolizerError { kind: SymbolizerErrorKind::AmbiguousSpan(), span: () })
-        // }
+        let mut end_prev = 0;
+        let mut maybe_error_start: Option<usize> = None;
+        for tk in s0.iter() {
+            for (off, c) in input[end_prev..tk.span.start].char_indices() {
+                if !c.is_whitespace() {
+                    if maybe_error_start == None {
+                        maybe_error_start = Some(end_prev + off);
+                    }
+                } else {
+                    if let Some(error_start) = maybe_error_start {
+                        errors.push(SymbolizerError { kind: SymbolizerErrorKind::EntryNotFound, span: (error_start..end_prev + off).into() });
+                        maybe_error_start = None;
+                    }
+                }
+            }
+            if let Some(error_start) = maybe_error_start {
+                errors.push(SymbolizerError { kind: SymbolizerErrorKind::EntryNotFound, span: (error_start..tk.span.start).into() });
+                maybe_error_start = None;
+            }
+            end_prev = tk.span.end;
+        }
+        if end_prev < input.len() {
+            for (off, c) in input[end_prev..input.len()].char_indices() {
+                if !c.is_whitespace() {
+                    if maybe_error_start == None {
+                        maybe_error_start = Some(end_prev + off);
+                    }
+                } else {
+                    if let Some(error_start) = maybe_error_start {
+                        errors.push(SymbolizerError { kind: SymbolizerErrorKind::EntryNotFound, span: (error_start..end_prev + off).into() });
+                        maybe_error_start = None;
+                    }
+                }
+            }
+            if let Some(error_start) = maybe_error_start {
+                errors.push(SymbolizerError { kind: SymbolizerErrorKind::EntryNotFound, span: (error_start..input.len()).into() });
+            }
+        }
+
+        if final_schedules.len() > 1 {
+            // FIXME think of better way to visit ambiguities.
+            let h1 = final_schedules[1].iter().rev().map(|j| {
+                let tk = token_candidates[*j - 1];
+                SymbolizerToken {
+                    id: tk.id,
+                    span: (tk.start..tk.end).into(),
+                }
+            }).collect::<HashSet<SymbolizerToken>>();
+            let h0: HashSet<SymbolizerToken> = s0.iter().copied().collect();
+            let mut left_difference = h0.difference(&h1).copied().collect::<Vec<SymbolizerToken>>();
+            left_difference.sort_by_key(|x| x.span.start);
+            let mut right_difference = h1.difference(&h0).copied().collect::<Vec<SymbolizerToken>>();
+            right_difference.sort_by_key(|x| x.span.start);
+            // FIXME abutted spans should be grouped and reported individually
+            errors.push(SymbolizerError { kind: SymbolizerErrorKind::AmbiguousSpan(vec![left_difference, right_difference]), span: (0..0).into() })
+        }
 
         Symbolized { tokens: s0, errors }
     }
