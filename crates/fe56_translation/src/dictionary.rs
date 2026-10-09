@@ -81,6 +81,7 @@ pub enum TokenizeResultKind {
     WordExact,
     Numeral,
     BareId,
+    BareIdBig,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

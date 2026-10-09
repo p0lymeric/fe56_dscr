@@ -128,6 +128,12 @@ impl SpecialTokenDfa {
                                 id,
                                 span: (*start..pos).into()
                             });
+                        } else {
+                            token_candidates.push(dictionary::TokenizeResult {
+                                kind: dictionary::TokenizeResultKind::BareIdBig,
+                                id: 0,
+                                span: (*start..pos).into()
+                            });
                         }
                         *self = SpecialTokenDfa::Bar { start: pos };
                     },
@@ -136,6 +142,12 @@ impl SpecialTokenDfa {
                             token_candidates.push(dictionary::TokenizeResult {
                                 kind: dictionary::TokenizeResultKind::BareId,
                                 id,
+                                span: (*start..pos).into()
+                            });
+                        } else {
+                            token_candidates.push(dictionary::TokenizeResult {
+                                kind: dictionary::TokenizeResultKind::BareIdBig,
+                                id: 0,
                                 span: (*start..pos).into()
                             });
                         }
@@ -153,6 +165,12 @@ impl SpecialTokenDfa {
                     token_candidates.push(dictionary::TokenizeResult {
                         kind: dictionary::TokenizeResultKind::BareId,
                         id,
+                        span: (*start..input.len()).into()
+                    });
+                } else {
+                    token_candidates.push(dictionary::TokenizeResult {
+                        kind: dictionary::TokenizeResultKind::BareIdBig,
+                        id: 0,
                         span: (*start..input.len()).into()
                     });
                 }
@@ -231,32 +249,65 @@ impl Symbolizer for MwisSymbolizer {
         let mut token_candidates = get_token_candidates(dictionary, input);
         token_candidates.sort_by_key(|x| (x.span.end, x.span.start));
 
-        // Under the framework of the weighted interval scheduling problem, find a schedule (non-overlapping token selection) that
-        // optimizes the sum of weights described by the tuple:
-        // (
-        //     W1. Number of covered non-whitespace bytes,
-        //     W2. Constant 1,
-        //     W3. 1 if bare ID,
-        //     W4. 1 if word,
-        //     W5: 1 if word AND exact case match,
-        //     W6. 1 if numerical digits
-        // )
-        // Individual weight components add component-wise along the schedule, and are ordered lexicographically (W1 most significant).
+        // TODO pre-filter to pick 1 choice per group of perfectly overlapping spans (prioritize highest IDs)
+        // FIXME delete tokens that overlap with a bare ID token
 
-        // A resultant schedule with "optimal" total score has a sum of weights that:
-        // W1. covers as many non-whitespace bytes in the text string as possible (higher is better)
-        // W2. with the fewest covering tokens (lower is better)
-        // W3. prioritizing bare IDs
-        // W4. over potentially case-inexact words
-        // W5. over case-exact words
-        // W6. over numbers
+        // OPTIMIZATION GOAL
+        // Under the framework of the weighted interval scheduling problem, find a schedule (non-overlapping token selection)
+        // that optimizes the sum of weights described by the tuple:
+        //     (
+        //         W1. Number of covered non-whitespace bytes,
+        //         W2. Constant 1,
+        //         W3. 1 if bare ID,
+        //         W4. 1 if word,
+        //         W5: 1 if word AND exact case match,
+        //         W6. 1 if numerical digits
+        //     )
+        // Individual weight components in the tuple add component-wise along the schedule.
 
-        // Iff a resultant schedule's W1 is equal to the total number of non-whitespace bytes in the text string, it is a "valid solution".
-        // If a "valid solution" exists, any "optimal" solution will be a "valid solution".
-        // If an "optimal" schedule is not a "valid solution", the characters that were uncovered should be reported as "unrecognized spans".
+        // OPTIMAL SOLUTIONS
+        // Definition: A schedule with "optimal" total score has a sum of weights that, in priority order:
+        //     W1. covers as many non-whitespace bytes in the text string as possible (higher is better)
+        //     W2. with the fewest covering tokens (lower is better)
+        //     W3. prioritizing bare IDs (higher is better)
+        //     W4. over case-exact or case-inexact words (higher is better)
+        //     W5. over case-inexact* words (higher is better, *we measure case-exact words to deprioritize case-INexact words)
+        //     W6. over numbers (higher is better)
 
-        // Any schedules with identical score are "ambiguous" with one another.
-        // If there exists more than one "optimal" "valid solution", the set difference of two such solutions should be reported as "ambiguous tokenizations".
+        // VALID SOLUTIONS
+        // Definition: Iff a resultant schedule's W1 is equal to the total number of non-whitespace bytes in the text string, it is a "valid solution".
+        // Fact: If a "valid solution" exists, any "optimal" schedule will be a "valid solution".
+        // Handling: If an "optimal" schedule is not a "valid solution", the characters that were uncovered are reported as "unrecognized spans".
+
+        // AMBIGUOUS SOLUTIONS
+        // Definition: Any schedules with identical score are "ambiguous" with one another.
+        // Handling: If there exists more than one "optimal" "valid solution", the set difference of two such solutions are reported as "ambiguous tokenizations".
+
+        // NOTES ON PRECEDENCE
+        // - These notes provide an interpretation of tokenizer/optimizer behaviour.
+        // - Bare IDs (a bar followed by an integer string) are ultimately prioritized and may never be shadowed by a word.
+        //     - However, the bar itself followed by a non-integer string or nothing is not interpreted as a bare ID, and thus may be shadowed.
+        // - Words (dictionary entry matches) are highly prioritized.
+        //     - Words match sequences of text via exact or casefolded comparison.
+        //     - Tokens that match a word exactly are prioritized higher than casefolded matches.
+        //     - Words can contain digits and whitespace.
+        // - Whitespace is either literally matched or used to explicitly set token boundaries. In priority order:
+        //     1. Any words that include whitespace will consume whitespace in order to produce a match.
+        //     2. Any leftover whitespace can serve to force a choice or break ambiguity, when the parser cannot find a good position to infer token boundaries.
+        //         - Consider an example dictionary with words ["PARTICLE", "SIT", "IT", "FIRETRUCK", "FIRE", "TRUCK", "IS", "ITIS"]
+        //         - The parser's definition of "good position to infer token boundaries" are "ambiguity" are defined by the optimization goal, largely influenced by W2.
+        //          e.g. "PARTICLESIT" is ambiguous with "PARTICLES IT" or "PARTICLE SIT". Only the two whitespace-qualified forms are accepted.
+        //         - It is expected that a user will insert whitespace to solve parse ambiguity, naturally or by using feedback from ambiguity traces.
+        //         - When a compound word and its constituents are both present in a dictionary, the compound is preferred when no whitespace is present.
+        //           e.g. "FIRETRUCK" unambiguously parses as "FIRETRUCK", whereas "FIRE TRUCK" unambiguously parses as "FIRE TRUCK".
+        //           e.g. "ITIS" unambiguously parses as "ITIS", due to lower token count, instead of "IT IS".
+        //         - It is expected that a user will type with redundant whitespace and curate their dictionary to defend against false compound merging.
+
+        // POSSIBLE IMPLEMENTATION DEFECTS
+        // - ID priority between two case-folded word matches is undefined.
+        //   Since we maintain sorted ID lists in our trie, actual behaviour is likely deterministic.
+        // - Additional consideration is needed to ensure that bare IDs are not shadowable by a word.
+        //   In cases where a word contains a bar-integer sequence, that word may win if it can replace what would've been multiple tokens.
 
         let mut weights = vec![MwisWeight::default(); token_candidates.len() + 1];
         let mut precedes = vec![0usize; token_candidates.len() + 1];
@@ -288,7 +339,7 @@ impl Symbolizer for MwisSymbolizer {
                             digits: 1
                         };
                     },
-                    dictionary::TokenizeResultKind::BareId => {
+                    dictionary::TokenizeResultKind::BareId | dictionary::TokenizeResultKind::BareIdBig => {
                         weights[i + 1] = MwisWeight {
                             non_whitespace_bytes: non_whitespace_bytes,
                             tokens_penalty: 1, // positive in the weight structure but penalized during Ord comparison
@@ -416,35 +467,6 @@ impl Symbolizer for MwisSymbolizer {
         }
 
         Symbolized { tokens: s0, errors }
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct LessAmbiguousSymbolizer;
-
-impl Symbolizer for LessAmbiguousSymbolizer {
-    fn symbolize(&self, dictionary: &dyn dictionary::Dictionary, input: &str) -> Symbolized {
-        // Less ambiguous parser:
-        // At each position in the string, list all dictionary words and digit strings that could potentially start at that point.
-        // Find all combinations of word selections that maximally cover the string
-        //     If there exists more than one solution, record ambiguous spans (considering special rules below)
-        //     (e.g. with a dictionary consisting of x, xx: xxx is ambiguously xx x or x xx)
-        // Collect tokens from the maximal word selection and identify any uncovered regions.
-        //     Only whitespace may be uncovered. Whitespace cannot be elided in order to form one token.
-
-        // Syntax extensions
-        // 1: |<id>/@<id>_UNDEF specifies a bare signal ID.
-        // 2: Words may contain '|'/'@' signs.
-        // 3. Words may contain whitespace.
-        // 4: A dictionary may contain words that are normally different but compare identically after uppercasing.
-
-        // Ambiguity rules
-        // 1. On a contest between two covers with different token counts, the one with fewer tokens wins.
-        // 2. On a contest between a word and a bare signal ID, bare signal ID wins.
-        // 3. On a contest between an exact case match and a partial case match, exact case match wins.
-        //    Partial matches resolve into the dictionary entry with the highest (less negative) ID.
-
-        todo!()
     }
 }
 
