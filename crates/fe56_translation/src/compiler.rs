@@ -21,8 +21,8 @@ pub enum SymbolizerErrorKind {
     // Our errors:
     // out of native integer bounds
     OutOfNativeIntBounds,
-    // muliple readings
-    AmbiguousSpan(Vec<Vec<SymbolizerToken>>),
+    // two readings in an ambiguous span
+    AmbiguousSpan(Vec<SymbolizerToken>, Vec<SymbolizerToken>),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -75,12 +75,103 @@ impl Symbolizer for CReformatterSymbolizer {
     }
 }
 
+// [0-9]
+// |-?[0-9]+
+#[derive(Debug, Clone, Copy)]
+enum SpecialTokenDfa {
+    Inactive,
+    Bar { start: usize },
+    BarMinus { start: usize },
+    BarDigit { start: usize },
+}
+
+impl SpecialTokenDfa {
+    fn advance(&mut self, pos: usize, c: char, input: &str, token_candidates: &mut Vec<dictionary::TokenizeResult>) {
+        match self {
+            SpecialTokenDfa::Inactive => {
+                match c {
+                    '|' => *self = SpecialTokenDfa::Bar { start: pos },
+                    '0'..='9' => {
+                        if let Some(id_u32) = c.to_digit(10) && let Ok(id) = id_u32.try_into() {
+                            token_candidates.push(dictionary::TokenizeResult {
+                                kind: dictionary::TokenizeResultKind::Numeral,
+                                id,
+                                span: (pos..pos + 1).into()
+                            });
+                        }
+                    },
+                    _ => {}
+                }
+            },
+            SpecialTokenDfa::Bar { start } => {
+                match c {
+                    '|' => *self = SpecialTokenDfa::Bar { start: pos },
+                    '-' => *self = SpecialTokenDfa::BarMinus { start: *start },
+                    '0'..='9' => *self = SpecialTokenDfa::BarDigit { start: *start },
+                    _ => *self = SpecialTokenDfa::Inactive
+                }
+            },
+            SpecialTokenDfa::BarMinus { start } => {
+                match c {
+                    '|' => *self = SpecialTokenDfa::Bar { start: pos },
+                    '0'..='9' => *self = SpecialTokenDfa::BarDigit { start: *start },
+                    _ => *self = SpecialTokenDfa::Inactive
+                }
+            },
+            SpecialTokenDfa::BarDigit { start } => {
+                match c {
+                    '0'..='9' => {},
+                    '|' => {
+                        if let Ok(id) = input[*start + 1..pos].parse() {
+                            token_candidates.push(dictionary::TokenizeResult {
+                                kind: dictionary::TokenizeResultKind::BareId,
+                                id,
+                                span: (*start..pos).into()
+                            });
+                        }
+                        *self = SpecialTokenDfa::Bar { start: pos };
+                    },
+                    _ => {
+                        if let Ok(id) = input[*start + 1..pos].parse() {
+                            token_candidates.push(dictionary::TokenizeResult {
+                                kind: dictionary::TokenizeResultKind::BareId,
+                                id,
+                                span: (*start..pos).into()
+                            });
+                        }
+                        *self = SpecialTokenDfa::Inactive;
+                    }
+                }
+            },
+        }
+    }
+
+    fn terminate(&mut self, input: &str, token_candidates: &mut Vec<dictionary::TokenizeResult>) {
+        match self {
+            SpecialTokenDfa::BarDigit { start } => {
+                if let Ok(id) = input[*start + 1..input.len()].parse() {
+                    token_candidates.push(dictionary::TokenizeResult {
+                        kind: dictionary::TokenizeResultKind::BareId,
+                        id,
+                        span: (*start..input.len()).into()
+                    });
+                }
+            },
+            _ => {},
+        }
+        *self = SpecialTokenDfa::Inactive;
+    }
+}
+
 fn get_token_candidates(dictionary: &dyn dictionary::Dictionary, input: &str) -> Vec<dictionary::TokenizeResult>  {
     let mut token_candidates: Vec<dictionary::TokenizeResult> = Vec::new();
     let input_casefold = dictionary.casefold(input);
-    for (pos, _c) in input.char_indices() {
+    let mut special_matcher = SpecialTokenDfa::Inactive;
+    for (pos, c) in input.char_indices() {
         token_candidates.append(&mut dictionary.tokenize_at(input, &input_casefold, pos));
+        special_matcher.advance(pos, c, input, &mut token_candidates);
     }
+    special_matcher.terminate(input, &mut token_candidates);
     token_candidates
 }
 
@@ -174,23 +265,44 @@ impl Symbolizer for MwisSymbolizer {
         // Note: weights[0]/precedes[0]/optimal[0] are fixed at 0 and can be accessed during search.
 
         for (i, tk) in token_candidates.iter().enumerate() {
-            if let Some(def) = dictionary.get(tk.id) {
-                let non_whitespace_bytes = def.word.chars().fold(0usize, |c, x| if !x.is_whitespace() { c + x.len_utf8() } else { c } );
-                if let Ok(non_whitespace_bytes) = u32::try_from(non_whitespace_bytes) {
-                    weights[i + 1] = MwisWeight {
-                        non_whitespace_bytes: non_whitespace_bytes,
-                        tokens_penalty: 1, // positive in the weight structure but penalized during Ord comparison
-                        bare_ids: 0,
-                        words: 1,
-                        exact_words: if tk.exact_case { 1 } else { 0 },
-                        digits: 0
-                    };
-                } else {
-                    // TODO push error (pathologically sized token)
+            let non_whitespace_bytes = input[tk.span].chars().fold(0usize, |c, x| if !x.is_whitespace() { c + x.len_utf8() } else { c } );
+            if let Ok(non_whitespace_bytes) = u32::try_from(non_whitespace_bytes) {
+                match tk.kind {
+                    dictionary::TokenizeResultKind::WordInexact | dictionary::TokenizeResultKind::WordExact => {
+                        weights[i + 1] = MwisWeight {
+                            non_whitespace_bytes: non_whitespace_bytes,
+                            tokens_penalty: 1, // positive in the weight structure but penalized during Ord comparison
+                            bare_ids: 0,
+                            words: 1,
+                            exact_words: if tk.kind == dictionary::TokenizeResultKind::WordExact { 1 } else { 0 },
+                            digits: 0
+                        };
+                    },
+                    dictionary::TokenizeResultKind::Numeral => {
+                        weights[i + 1] = MwisWeight {
+                            non_whitespace_bytes: non_whitespace_bytes,
+                            tokens_penalty: 1, // positive in the weight structure but penalized during Ord comparison
+                            bare_ids: 0,
+                            words: 0,
+                            exact_words: 0,
+                            digits: 1
+                        };
+                    },
+                    dictionary::TokenizeResultKind::BareId => {
+                        weights[i + 1] = MwisWeight {
+                            non_whitespace_bytes: non_whitespace_bytes,
+                            tokens_penalty: 1, // positive in the weight structure but penalized during Ord comparison
+                            bare_ids: 1,
+                            words: 0,
+                            exact_words: 0,
+                            digits: 0
+                        };
+                    },
                 }
             } else {
-                // TODO push error (will not occur if dictionary is correctly implemented)
+                // TODO push error (pathologically sized token)
             }
+
             precedes[i + 1] = token_candidates.partition_point(|x| x.span.end <= tk.span.start);
         }
 
@@ -255,31 +367,53 @@ impl Symbolizer for MwisSymbolizer {
 
         // Collect ambiguous spans
         for j in ambiguous_points {
-            // FIXME need to walk further back until we reach a divergence point
-            // We only report 2 alternatives at convergence points for now
-            let tk_left = token_candidates[precedes[j]];
-            let tk_right = token_candidates[j - 1];
-            let left_difference: Vec<SymbolizerToken> = vec![SymbolizerToken { id: tk_left.id, span: tk_left.span }];
-            let right_difference: Vec<SymbolizerToken> = vec![SymbolizerToken { id: tk_right.id, span: tk_right.span }];
-            errors.push(SymbolizerError { kind: SymbolizerErrorKind::AmbiguousSpan(vec![left_difference, right_difference]), span: (tk_left.span.start.min(tk_right.span.start)..tk_left.span.end.max(tk_right.span.end)).into() })
+            let mut left_divergence: Vec<SymbolizerToken> = Vec::new();
+            let mut right_divergence: Vec<SymbolizerToken> = Vec::new();
+
+            let mut j_left = precedes[j];
+            let tk_left = token_candidates[j - 1];
+            left_divergence.push(SymbolizerToken { id: tk_left.id, span: tk_left.span });
+
+            let mut j_right = j - 1;
+
+            while j_left != j_right {
+                if j_left > j_right {
+                    let compare = (weights[j_left] + optimal[precedes[j_left]]).cmp(&optimal[j_left - 1]);
+                    if compare.is_ge() {
+                        let tk = token_candidates[j_left - 1];
+                        left_divergence.push(SymbolizerToken { id: tk.id, span: tk.span });
+                        j_left = precedes[j_left];
+                    } else {
+                        j_left = j_left - 1;
+                    }
+                } else {
+                    let compare = (weights[j_right] + optimal[precedes[j_right]]).cmp(&optimal[j_right - 1]);
+                    if compare.is_ge() {
+                        let tk = token_candidates[j_right - 1];
+                        right_divergence.push(SymbolizerToken { id: tk.id, span: tk.span });
+                        j_right = precedes[j_right];
+                    } else {
+                        j_right = j_right - 1;
+                    }
+                }
+            }
+
+            left_divergence.reverse();
+            right_divergence.reverse();
+
+            let start = if let Some(right_first) = right_divergence.first() {
+                // Safe to unwrap first() as we assure at least one push
+                left_divergence.first().unwrap().span.start.min(right_first.span.start)
+            } else {
+                // Safe to unwrap first() as we assure at least one push
+                left_divergence.first().unwrap().span.start
+            };
+
+            errors.push(SymbolizerError {
+                kind: SymbolizerErrorKind::AmbiguousSpan(left_divergence, right_divergence),
+                span: (start..tk_left.span.end).into()
+            })
         }
-        // if final_schedules.len() > 1 {
-        //     // FIXME think of better way to visit ambiguities.
-        //     let h1 = final_schedules[1].iter().rev().map(|j| {
-        //         let tk = token_candidates[*j - 1];
-        //         SymbolizerToken {
-        //             id: tk.id,
-        //             span: tk.span,
-        //         }
-        //     }).collect::<HashSet<SymbolizerToken>>();
-        //     let h0: HashSet<SymbolizerToken> = s0.iter().copied().collect();
-        //     let mut left_difference = h0.difference(&h1).copied().collect::<Vec<SymbolizerToken>>();
-        //     left_difference.sort_by_key(|x| x.span.start);
-        //     let mut right_difference = h1.difference(&h0).copied().collect::<Vec<SymbolizerToken>>();
-        //     right_difference.sort_by_key(|x| x.span.start);
-        //     // FIXME abutted spans should be grouped and reported individually
-        //     errors.push(SymbolizerError { kind: SymbolizerErrorKind::AmbiguousSpan(vec![left_difference, right_difference]), span: (0..0).into() })
-        // }
 
         Symbolized { tokens: s0, errors }
     }

@@ -71,9 +71,9 @@ impl Dictionary for ShadowDictionary {
                         false
                     };
                     Some(TokenizeResult {
+                        kind: if exact_case { TokenizeResultKind::WordExact } else { TokenizeResultKind::WordInexact },
                         id: prefix.id,
-                        span: (start..end_orig).into(),
-                        exact_case
+                        span: (start..end_orig).into()
                     })
                 } else { None }
 

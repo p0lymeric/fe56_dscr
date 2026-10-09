@@ -76,11 +76,19 @@ pub struct Definition {
 pub type SymbolT = i64;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TokenizeResultKind {
+    WordInexact,
+    WordExact,
+    Numeral,
+    BareId,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct TokenizeResult {
+    pub kind: TokenizeResultKind,
     pub id: SymbolT,
     // these are byte offsets, not character offsets!
     pub span: Range<usize>,
-    pub exact_case: bool,
 }
 
 pub trait Dictionary {

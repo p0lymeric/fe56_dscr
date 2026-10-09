@@ -219,14 +219,14 @@ mod tests {
 
         let untoward_case_folded = dict.casefold("untoward");
 
-        assert_eq!(dict.tokenize_at("UNTOWARD", &untoward_case_folded, 0), &[TokenizeResult { id: -1, span: (0..4).into(), exact_case: true }, TokenizeResult { id: -3, span: (0..8).into(), exact_case: true }]);
+        assert_eq!(dict.tokenize_at("UNTOWARD", &untoward_case_folded, 0), &[TokenizeResult { kind: TokenizeResultKind::WordExact, id: -1, span: (0..4).into() }, TokenizeResult { kind: TokenizeResultKind::WordExact, id: -3, span: (0..8).into() }]);
         assert_eq!(dict.tokenize_at("UNTOWARD", &untoward_case_folded, 1), &[] as &[TokenizeResult]);
-        assert_eq!(dict.tokenize_at("UNTOWARD", &untoward_case_folded, 4), &[TokenizeResult { id: -2, span: (4..8).into(), exact_case: true }]);
+        assert_eq!(dict.tokenize_at("UNTOWARD", &untoward_case_folded, 4), &[TokenizeResult { kind: TokenizeResultKind::WordExact, id: -2, span: (4..8).into() }]);
         assert_eq!(dict.tokenize_at("UNTOWARD", &untoward_case_folded, 5), &[] as &[TokenizeResult]);
 
         // panic!("{:?}", dict.tokenize_at("untoWARD", Some(&untoward_case_folded), 0));
-        assert_eq!(dict.tokenize_at("untoWARD", &untoward_case_folded, 0), &[TokenizeResult { id: -1, span: (0..4).into(), exact_case: false }, TokenizeResult { id: -3, span: (0..8).into(), exact_case: false }]);
-        assert_eq!(dict.tokenize_at("untoWARD", &untoward_case_folded, 4), &[TokenizeResult { id: -2, span: (4..8).into(), exact_case: true }]);
+        assert_eq!(dict.tokenize_at("untoWARD", &untoward_case_folded, 0), &[TokenizeResult { kind: TokenizeResultKind::WordInexact, id: -1, span: (0..4).into() }, TokenizeResult { kind: TokenizeResultKind::WordInexact, id: -3, span: (0..8).into() }]);
+        assert_eq!(dict.tokenize_at("untoWARD", &untoward_case_folded, 4), &[TokenizeResult { kind: TokenizeResultKind::WordExact, id: -2, span: (4..8).into() }]);
     }
 
     #[test]
@@ -240,7 +240,7 @@ mod tests {
         let sus_case_folded = dict.casefold(sus);
 
         // panic!("{:?}", dict.tokenize_at(sus, &sus_case_folded, 0));
-        assert_eq!(dict.tokenize_at(sus, &sus_case_folded, 0), &[TokenizeResult { id: -3, span: (0..3).into(), exact_case: false }, TokenizeResult { id: -2, span: (0..5).into(), exact_case: true }, TokenizeResult { id: -1, span: (0..5).into(), exact_case: false }]);
+        assert_eq!(dict.tokenize_at(sus, &sus_case_folded, 0), &[TokenizeResult { kind: TokenizeResultKind::WordInexact, id: -3, span: (0..3).into() }, TokenizeResult { kind: TokenizeResultKind::WordExact, id: -2, span: (0..5).into() }, TokenizeResult { kind: TokenizeResultKind::WordInexact, id: -1, span: (0..5).into() }]);
         // TODO more predictions
     }
 }

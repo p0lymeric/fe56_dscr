@@ -5,8 +5,8 @@ use eframe::egui;
 use egui::{Color32, FontId};
 use fe56_translation::compiler::SymbolizerErrorKind::{AmbiguousSpan, EntryNotFound};
 use fe56_translation::dictionary::json::JsonDictionary;
-use fe56_translation::dictionary::{Definition, Dictionary, DictionaryMut, Formatting};
-use fe56_translation::compiler::{MwisSymbolizer, Symbolized, Symbolizer};
+use fe56_translation::dictionary::{Definition, Dictionary, DictionaryMut, Formatting, TokenizeResultKind};
+use fe56_translation::compiler::{MwisSymbolizer, Symbolized, Symbolizer, SymbolizerToken};
 
 fn main() {
     let native_options = eframe::NativeOptions::default();
@@ -81,10 +81,15 @@ impl eframe::App for MyEguiApp {
             let mut underline = vec![' '; self.my_string.len()];
             let mut parity = 0;
             for tk in &self.my_tokenization.tokens {
-                let entry = self.dictionary.get(tk.id).unwrap();
-                for off in 0..entry.word.len() {
+                for off in tk.span {
                     // FIXME very much incorrect for multibyte characters
-                    underline[off + tk.span.start] = if parity == 0 { '=' } else { '~' };
+                    underline[off] = if tk.id >= 0 {
+                        '#'
+                    } else if parity == 0 {
+                        '='
+                    } else {
+                        '~'
+                    };
                 }
                 parity = if parity == 0 { 1 } else { 0 };
             }
@@ -96,7 +101,7 @@ impl eframe::App for MyEguiApp {
                             underline[i] = '!';
                         }
                     },
-                    AmbiguousSpan(vec) => {
+                    AmbiguousSpan(lvec, rvec) => {
                         // for x in &vec[0] {
                         //     let entry = self.dictionary.get(x.id).unwrap();
                         //     for off in 0..entry.word.len() {
@@ -113,11 +118,32 @@ impl eframe::App for MyEguiApp {
             ui.add(egui::TextEdit::multiline(&mut underline.iter().collect::<String>()).desired_width(f32::INFINITY));
             egui::ScrollArea::vertical().id_salt("tks").show(ui, |ui| {
                 for tk in &self.my_tokenization.tokens {
-                    let entry = self.dictionary.get(tk.id).unwrap();
-                    ui.add(egui::TextEdit::singleline(&mut format!("{} ({}) {}-{}", tk.id, entry.word, tk.span.start, tk.span.end)).desired_width(f32::INFINITY));
+                    if let Some(entry) = self.dictionary.get(tk.id) {
+                        ui.add(egui::TextEdit::singleline(&mut format!("{} ({}) {}-{}", tk.id, entry.word, tk.span.start, tk.span.end)).desired_width(f32::INFINITY));
+                    } else {
+                        ui.add(egui::TextEdit::singleline(&mut format!("{} {}-{}", tk.id, tk.span.start, tk.span.end)).desired_width(f32::INFINITY));
+                    }
                 }
                 for err in &self.my_tokenization.errors {
-                    ui.add(egui::TextEdit::singleline(&mut format!("{:?} ({}) {}-{}", err.kind, &self.my_string[err.span.start..err.span.end], err.span.start, err.span.end)).desired_width(f32::INFINITY).background_color(Color32::LIGHT_YELLOW));
+                    fn describe_stks(vec: &[SymbolizerToken], dictionary: &dyn Dictionary) -> String {
+                        let mut builder: Vec<String> = Vec::new();
+                        for tk in vec {
+                            if let Some(entry) = dictionary.get(tk.id) {
+                                builder.push(format!("{}", entry.word));
+                            } else {
+                                builder.push(format!("|{}", tk.id));
+                            };
+                        }
+                        builder.join(" ")
+                    }
+                    match &err.kind {
+                        AmbiguousSpan(lvec, rvec) => {
+                            ui.add(egui::TextEdit::singleline(&mut format!("AmbiguousSpan ({} <=> {}) {}-{}", describe_stks(&lvec, &self.dictionary), describe_stks(&rvec, &self.dictionary), err.span.start, err.span.end)).desired_width(f32::INFINITY).background_color(Color32::LIGHT_YELLOW));
+                        },
+                        _ => {
+                            ui.add(egui::TextEdit::singleline(&mut format!("{:?} ({}) {}-{}", err.kind, &self.my_string[err.span.start..err.span.end], err.span.start, err.span.end)).desired_width(f32::INFINITY).background_color(Color32::LIGHT_YELLOW));
+                        }
+                    }
                 }
             });
        });
