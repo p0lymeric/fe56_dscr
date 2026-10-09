@@ -3,6 +3,8 @@ pub mod json;
 
 use crate::case;
 
+use std::range::Range;
+
 // Dictionary interface
 // polymeric 2026
 
@@ -77,14 +79,14 @@ pub type SymbolT = i64;
 pub struct TokenizeResult {
     pub id: SymbolT,
     // these are byte offsets, not character offsets!
-    pub start: usize,
-    pub end: usize,
+    pub span: Range<usize>,
     pub exact_case: bool,
 }
 
 pub trait Dictionary {
     fn get(&self, id: SymbolT) -> Option<&Definition>;
-    fn lookup(&self, word: &str, case_sensitive: bool) -> &[SymbolT];
+    fn lookup(&self, word: &str) -> Option<SymbolT>;
+    fn lookup_casefold(&self, word: &str) -> &[SymbolT];
 
     fn global_format(&self) -> Formatting;
 

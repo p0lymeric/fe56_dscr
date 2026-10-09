@@ -1,6 +1,6 @@
 use crate::dictionary::{self, SpacingKind};
 
-use std::collections::HashSet;
+use std::ops::Add;
 use std::range::Range;
 use std::fmt::Write;
 
@@ -84,34 +84,50 @@ fn get_token_candidates(dictionary: &dyn dictionary::Dictionary, input: &str) ->
     token_candidates
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct EdfsSymbolizer;
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+struct MwisWeight {
+    non_whitespace_bytes: u32,
+    tokens_penalty: u32,
+    bare_ids: u32,
+    words: u32,
+    exact_words: u32,
+    digits: u32,
+}
 
-impl Symbolizer for EdfsSymbolizer {
-    fn symbolize(&self, dictionary: &dyn dictionary::Dictionary, input: &str) -> Symbolized {
-        // https://en.wikipedia.org/wiki/Interval_scheduling#Unweighted
-        let mut token_candidates = get_token_candidates(dictionary, input);
-        token_candidates.sort_by_key(|x| (x.end, x.start));
+impl PartialOrd for MwisWeight {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
 
-        let mut best_tokenization: Vec<SymbolizerToken> = Vec::new();
-        if token_candidates.len() >= 1 {
-            let mut last_select = &token_candidates[0];
-            best_tokenization.push(SymbolizerToken {
-                id: last_select.id,
-                span: (last_select.start..last_select.end).into(),
-            });
-            for tk in token_candidates.iter().skip(1) {
-                if tk.start >= last_select.end {
-                    last_select = tk;
-                    best_tokenization.push(SymbolizerToken {
-                        id: tk.id,
-                        span: (tk.start..tk.end).into(),
-                    });
-                }
-            }
+impl Ord for MwisWeight {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        // Top-down lexicographic ordering, but one of the field comparisons is reversed
+        self.non_whitespace_bytes.cmp(&other.non_whitespace_bytes)
+            .then(other.tokens_penalty.cmp(&self.tokens_penalty)) // Inverted, lower is more optimal
+            .then(self.bare_ids.cmp(&other.bare_ids))
+            .then(self.words.cmp(&other.words))
+            .then(self.exact_words.cmp(&other.exact_words))
+            .then(self.digits.cmp(&other.digits))
+    }
+}
+
+impl Add for MwisWeight {
+    type Output = MwisWeight;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        // Component-wise addition
+        // Surely we won't see a 4 GB string or more than 4 billion tokens pass through this optimizer...
+        // Surely we don't need to perform size checks and use saturating addition...
+        // Right?
+        MwisWeight {
+            non_whitespace_bytes: self.non_whitespace_bytes + rhs.non_whitespace_bytes,
+            tokens_penalty: self.tokens_penalty + rhs.tokens_penalty,
+            bare_ids: self.bare_ids + rhs.bare_ids,
+            words: self.words + rhs.words,
+            exact_words: self.exact_words + rhs.exact_words,
+            digits: self.digits + rhs.digits,
         }
-
-        Symbolized { tokens: best_tokenization, errors: Vec::new() }
     }
 }
 
@@ -122,102 +138,97 @@ impl Symbolizer for MwisSymbolizer {
     fn symbolize(&self, dictionary: &dyn dictionary::Dictionary, input: &str) -> Symbolized {
         // List all possible tokenizations of the input string, then sort by earliest end for MWIS
         let mut token_candidates = get_token_candidates(dictionary, input);
-        token_candidates.sort_by_key(|x| (x.end, x.start));
+        token_candidates.sort_by_key(|x| (x.span.end, x.span.start));
 
         // Under the framework of the weighted interval scheduling problem, find a schedule (non-overlapping token selection) that
-        // maximizes the sum of weights described by the tuple:
+        // optimizes the sum of weights described by the tuple:
         // (
         //     W1. Number of covered non-whitespace bytes,
-        //     W2. Constant -1,
+        //     W2. Constant 1,
         //     W3. 1 if bare ID,
-        ///    W4. 1 if word,
-        ///    W5: 1 if word AND exact case match,
-        ///    W6. 1 if numerical digits
-        /// )
+        //     W4. 1 if word,
+        //     W5: 1 if word AND exact case match,
+        //     W6. 1 if numerical digits
+        // )
         // Individual weight components add component-wise along the schedule, and are ordered lexicographically (W1 most significant).
 
-        // A resultant schedule with maximum ("optimal") score has a path weight that:
-        // W1. covers as many non-whitespace bytes in the text string as possible
-        // W2. with the fewest covering tokens
+        // A resultant schedule with "optimal" total score has a sum of weights that:
+        // W1. covers as many non-whitespace bytes in the text string as possible (higher is better)
+        // W2. with the fewest covering tokens (lower is better)
         // W3. prioritizing bare IDs
         // W4. over potentially case-inexact words
-        // W5. over exact words
+        // W5. over case-exact words
         // W6. over numbers
 
         // Iff a resultant schedule's W1 is equal to the total number of non-whitespace bytes in the text string, it is a "valid solution".
-        // If the "optimal" schedule is not a "valid solution", the characters that were uncovered should be reported as "unrecognized spans".
+        // If a "valid solution" exists, any "optimal" solution will be a "valid solution".
+        // If an "optimal" schedule is not a "valid solution", the characters that were uncovered should be reported as "unrecognized spans".
 
         // Any schedules with identical score are "ambiguous" with one another.
         // If there exists more than one "optimal" "valid solution", the set difference of two such solutions should be reported as "ambiguous tokenizations".
 
-        // TODO implement custom Ord for WeightTuple
-        //                  +    -    +    +    +    +
-        type WeightTuple = (u32, i32, u32, u32, u32, u32);
-
-        fn add(a: &WeightTuple, b: &WeightTuple) -> WeightTuple {
-            (a.0 + b.0, a.1 + b.1, a.2 + b.2, a.3 + b.3, a.4 + b.4, a.5 + b.5)
-        }
-
-        let mut weights: Vec<WeightTuple> = vec![WeightTuple::default(); token_candidates.len() + 1];
-        let mut precedes: Vec<usize> = vec![0; token_candidates.len() + 1];
-        let mut optimal: Vec<WeightTuple> = vec![WeightTuple::default(); token_candidates.len() + 1];
+        let mut weights = vec![MwisWeight::default(); token_candidates.len() + 1];
+        let mut precedes = vec![0usize; token_candidates.len() + 1];
+        let mut optimal = vec![MwisWeight::default(); token_candidates.len() + 1];
 
         // Note: weights[0]/precedes[0]/optimal[0] are fixed at 0 and can be accessed during search.
 
         for (i, tk) in token_candidates.iter().enumerate() {
-            // FIXME special error for dictionary lookup or overly long word
-            // FIXME DO NOT UNWRAP HERE
-            weights[i + 1] = (
-                dictionary.get(tk.id).unwrap().word.chars().fold(0usize, |c, x| if !x.is_whitespace() { c + x.len_utf8() } else { c } ) as u32,
-                -1, // TODO implement custom Ord for WeightTuple
-                0,
-                1,
-                if tk.exact_case { 1 } else { 0 },
-                0
-            );
-            precedes[i + 1] = token_candidates.partition_point(|x| x.end <= tk.start);
+            if let Some(def) = dictionary.get(tk.id) {
+                let non_whitespace_bytes = def.word.chars().fold(0usize, |c, x| if !x.is_whitespace() { c + x.len_utf8() } else { c } );
+                if let Ok(non_whitespace_bytes) = u32::try_from(non_whitespace_bytes) {
+                    weights[i + 1] = MwisWeight {
+                        non_whitespace_bytes: non_whitespace_bytes,
+                        tokens_penalty: 1, // positive in the weight structure but penalized during Ord comparison
+                        bare_ids: 0,
+                        words: 1,
+                        exact_words: if tk.exact_case { 1 } else { 0 },
+                        digits: 0
+                    };
+                } else {
+                    // TODO push error (pathologically sized token)
+                }
+            } else {
+                // TODO push error (will not occur if dictionary is correctly implemented)
+            }
+            precedes[i + 1] = token_candidates.partition_point(|x| x.span.end <= tk.span.start);
         }
 
         for i in 1..token_candidates.len() + 1 {
-            optimal[i] = add(&weights[i], &optimal[precedes[i]]).max(optimal[i - 1])
+            optimal[i] = (weights[i] + optimal[precedes[i]]).max(optimal[i - 1])
         }
 
-        // FIXME convert to iterative recursion
-        let mut inter_schedule: Vec<usize> = Vec::new();
-        let mut final_schedules: Vec<Vec<usize>> = Vec::new();
-        fn schedule(j: usize, weights: &Vec<WeightTuple>, precedes: &Vec<usize>, optimal: &Vec<WeightTuple>, final_schedules: &mut Vec<Vec<usize>>, inter_schedule: &mut Vec<usize>) {
-            if j == 0 {
-                final_schedules.push(inter_schedule.clone());
-                return;
+        let mut opt_schedule: Vec<usize> = Vec::new();
+        let mut ambiguous_points: Vec<usize> = Vec::new();
+        let mut j = token_candidates.len();
+        while j > 0 {
+            let compare = (weights[j] + optimal[precedes[j]]).cmp(&optimal[j - 1]);
+            if compare.is_eq() {
+                // Iff this branch is never reached, the optimal schedule is unique.
+                ambiguous_points.push(j);
             }
-            let compare = add(&weights[j], &optimal[precedes[j]]).cmp(&optimal[j - 1]);
             if compare.is_ge() {
-                inter_schedule.push(j);
-                schedule(precedes[j], weights, precedes, optimal, final_schedules, inter_schedule);
-                inter_schedule.pop();
-            }
-            if compare.is_le() {
-                schedule(j - 1, weights, precedes, optimal, final_schedules, inter_schedule);
+                opt_schedule.push(j);
+                j = precedes[j];
+            } else {
+                j = j - 1;
             }
         }
 
-        schedule(token_candidates.len(), &weights, &precedes, &optimal, &mut final_schedules, &mut inter_schedule);
-
-        // It is guaranteed there will be at least one final schedule
-        let s0 = final_schedules[0].iter().rev().map(|j| {
+        let s0 = opt_schedule.iter().rev().map(|j| {
             let tk = token_candidates[*j - 1];
             SymbolizerToken {
                 id: tk.id,
-                span: (tk.start..tk.end).into(),
+                span: tk.span,
             }
         }).collect::<Vec<SymbolizerToken>>();
 
         let mut errors: Vec<SymbolizerError> = Vec::new();
 
-        let mut end_prev = 0;
-        let mut maybe_error_start: Option<usize> = None;
-        for tk in s0.iter() {
-            for (off, c) in input[end_prev..tk.span.start].char_indices() {
+        // Collect spans of untokenized non-whitespace
+        fn report_uncovered_non_whitespace(errors: &mut Vec<SymbolizerError>, input: &str, end_prev: usize, start: usize) {
+            let mut maybe_error_start: Option<usize> = None;
+            for (off, c) in input[end_prev..start].char_indices() {
                 if !c.is_whitespace() {
                     if maybe_error_start == None {
                         maybe_error_start = Some(end_prev + off);
@@ -230,46 +241,45 @@ impl Symbolizer for MwisSymbolizer {
                 }
             }
             if let Some(error_start) = maybe_error_start {
-                errors.push(SymbolizerError { kind: SymbolizerErrorKind::EntryNotFound, span: (error_start..tk.span.start).into() });
-                maybe_error_start = None;
+                errors.push(SymbolizerError { kind: SymbolizerErrorKind::EntryNotFound, span: (error_start..start).into() });
             }
+        }
+        let mut end_prev = 0;
+        for tk in s0.iter() {
+            report_uncovered_non_whitespace(&mut errors, input, end_prev, tk.span.start);
             end_prev = tk.span.end;
         }
         if end_prev < input.len() {
-            for (off, c) in input[end_prev..input.len()].char_indices() {
-                if !c.is_whitespace() {
-                    if maybe_error_start == None {
-                        maybe_error_start = Some(end_prev + off);
-                    }
-                } else {
-                    if let Some(error_start) = maybe_error_start {
-                        errors.push(SymbolizerError { kind: SymbolizerErrorKind::EntryNotFound, span: (error_start..end_prev + off).into() });
-                        maybe_error_start = None;
-                    }
-                }
-            }
-            if let Some(error_start) = maybe_error_start {
-                errors.push(SymbolizerError { kind: SymbolizerErrorKind::EntryNotFound, span: (error_start..input.len()).into() });
-            }
+            report_uncovered_non_whitespace(&mut errors, input, end_prev, input.len());
         }
 
-        if final_schedules.len() > 1 {
-            // FIXME think of better way to visit ambiguities.
-            let h1 = final_schedules[1].iter().rev().map(|j| {
-                let tk = token_candidates[*j - 1];
-                SymbolizerToken {
-                    id: tk.id,
-                    span: (tk.start..tk.end).into(),
-                }
-            }).collect::<HashSet<SymbolizerToken>>();
-            let h0: HashSet<SymbolizerToken> = s0.iter().copied().collect();
-            let mut left_difference = h0.difference(&h1).copied().collect::<Vec<SymbolizerToken>>();
-            left_difference.sort_by_key(|x| x.span.start);
-            let mut right_difference = h1.difference(&h0).copied().collect::<Vec<SymbolizerToken>>();
-            right_difference.sort_by_key(|x| x.span.start);
-            // FIXME abutted spans should be grouped and reported individually
-            errors.push(SymbolizerError { kind: SymbolizerErrorKind::AmbiguousSpan(vec![left_difference, right_difference]), span: (0..0).into() })
+        // Collect ambiguous spans
+        for j in ambiguous_points {
+            // FIXME need to walk further back until we reach a divergence point
+            // We only report 2 alternatives at convergence points for now
+            let tk_left = token_candidates[precedes[j]];
+            let tk_right = token_candidates[j - 1];
+            let left_difference: Vec<SymbolizerToken> = vec![SymbolizerToken { id: tk_left.id, span: tk_left.span }];
+            let right_difference: Vec<SymbolizerToken> = vec![SymbolizerToken { id: tk_right.id, span: tk_right.span }];
+            errors.push(SymbolizerError { kind: SymbolizerErrorKind::AmbiguousSpan(vec![left_difference, right_difference]), span: (tk_left.span.start.min(tk_right.span.start)..tk_left.span.end.max(tk_right.span.end)).into() })
         }
+        // if final_schedules.len() > 1 {
+        //     // FIXME think of better way to visit ambiguities.
+        //     let h1 = final_schedules[1].iter().rev().map(|j| {
+        //         let tk = token_candidates[*j - 1];
+        //         SymbolizerToken {
+        //             id: tk.id,
+        //             span: tk.span,
+        //         }
+        //     }).collect::<HashSet<SymbolizerToken>>();
+        //     let h0: HashSet<SymbolizerToken> = s0.iter().copied().collect();
+        //     let mut left_difference = h0.difference(&h1).copied().collect::<Vec<SymbolizerToken>>();
+        //     left_difference.sort_by_key(|x| x.span.start);
+        //     let mut right_difference = h1.difference(&h0).copied().collect::<Vec<SymbolizerToken>>();
+        //     right_difference.sort_by_key(|x| x.span.start);
+        //     // FIXME abutted spans should be grouped and reported individually
+        //     errors.push(SymbolizerError { kind: SymbolizerErrorKind::AmbiguousSpan(vec![left_difference, right_difference]), span: (0..0).into() })
+        // }
 
         Symbolized { tokens: s0, errors }
     }

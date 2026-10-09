@@ -1,4 +1,5 @@
-use std::fs::read_to_string;
+use std::fs::{self, read_to_string};
+use std::io::{BufRead, BufReader};
 
 use eframe::egui;
 use egui::{Color32, FontId};
@@ -29,6 +30,25 @@ impl MyEguiApp {
             my_string: String::new(),
             my_tokenization: Symbolized { tokens: Vec::new(), errors: Vec::new() },
         };
+        // let esdb_src = fs::File::open("esdb.txt").unwrap();
+        // let esdb_rd = BufReader::new(esdb_src);
+        // let mut in_preamble = true;
+        // let mut id = -1000;
+        // for line in esdb_rd.lines() {
+        //     let lineu = &line.unwrap();
+        //     let linet = lineu.trim();
+        //     if in_preamble {
+        //         if linet == "---" {
+        //             in_preamble = false;
+        //         }
+        //         continue;
+        //     }
+        //     let line_uppercase = fe56_translation::case::to_uppercase_simple(linet);
+        //     if result.dictionary.lookup(&line_uppercase) == None {
+        //         result.dictionary.add(id, Definition { word: line_uppercase, desc: "".to_string(), format: Formatting::DEFAULT });
+        //         id -= 1;
+        //     }
+        // }
         // result.dictionary.add(-1, Definition { word: "UNTO".to_string(), desc: "desc".to_string(), format: Formatting::DEFAULT });
         // result.dictionary.add(-2, Definition { word: "WARD".to_string(), desc: "desc".to_string(), format: Formatting::DEFAULT });
         // result.dictionary.add(-3, Definition { word: "UNTOWARD".to_string(), desc: "desc".to_string(), format: Formatting::DEFAULT });
@@ -54,10 +74,11 @@ impl eframe::App for MyEguiApp {
             // let _ = ui.add(egui::TextEdit::multiline(&mut dict.as_str()).desired_width(f32::INFINITY));
             let response = ui.add(egui::TextEdit::multiline(&mut self.my_string).desired_width(f32::INFINITY));
             if response.changed() {
+                // self.my_string = fe56_translation::case::to_uppercase_simple(&self.my_string);
                 self.my_tokenization = MwisSymbolizer.symbolize(&self.dictionary, &self.my_string);
             }
             // ui.add(egui::TextEdit::singleline(&mut self.my_string.as_str()));
-            let mut underline = vec![' '; self.my_string.chars().count()];
+            let mut underline = vec![' '; self.my_string.len()];
             let mut parity = 0;
             for tk in &self.my_tokenization.tokens {
                 let entry = self.dictionary.get(tk.id).unwrap();
@@ -76,24 +97,29 @@ impl eframe::App for MyEguiApp {
                         }
                     },
                     AmbiguousSpan(vec) => {
-                        for x in &vec[0] {
-                            let entry = self.dictionary.get(x.id).unwrap();
-                            for off in 0..entry.word.len() {
-                                underline[off + x.span.start] = '?';
-                            }
+                        // for x in &vec[0] {
+                        //     let entry = self.dictionary.get(x.id).unwrap();
+                        //     for off in 0..entry.word.len() {
+                        //         underline[off + x.span.start] = '?';
+                        //     }
+                        // }
+                        for i in err.span {
+                            underline[i] = '?';
                         }
                     },
                     _ => {}
                 }
             }
-            ui.add(egui::TextEdit::singleline(&mut underline.iter().collect::<String>()).desired_width(f32::INFINITY));
-            for tk in &self.my_tokenization.tokens {
-                let entry = self.dictionary.get(tk.id).unwrap();
-                ui.add(egui::TextEdit::singleline(&mut format!("{} ({}) {}-{}", tk.id, entry.word, tk.span.start, tk.span.end)).desired_width(f32::INFINITY));
-            }
-            for err in &self.my_tokenization.errors {
-                ui.add(egui::TextEdit::singleline(&mut format!("{:?} ({}) {}-{}", err.kind, &self.my_string[err.span.start..err.span.end], err.span.start, err.span.end)).desired_width(f32::INFINITY).background_color(Color32::LIGHT_YELLOW));
-            }
+            ui.add(egui::TextEdit::multiline(&mut underline.iter().collect::<String>()).desired_width(f32::INFINITY));
+            egui::ScrollArea::vertical().id_salt("tks").show(ui, |ui| {
+                for tk in &self.my_tokenization.tokens {
+                    let entry = self.dictionary.get(tk.id).unwrap();
+                    ui.add(egui::TextEdit::singleline(&mut format!("{} ({}) {}-{}", tk.id, entry.word, tk.span.start, tk.span.end)).desired_width(f32::INFINITY));
+                }
+                for err in &self.my_tokenization.errors {
+                    ui.add(egui::TextEdit::singleline(&mut format!("{:?} ({}) {}-{}", err.kind, &self.my_string[err.span.start..err.span.end], err.span.start, err.span.end)).desired_width(f32::INFINITY).background_color(Color32::LIGHT_YELLOW));
+                }
+            });
        });
    }
 }

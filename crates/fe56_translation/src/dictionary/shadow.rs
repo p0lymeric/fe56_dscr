@@ -40,12 +40,12 @@ impl Dictionary for ShadowDictionary {
         self.defs.get(&id).map(|x| &x.def)
     }
 
-    fn lookup(&self, word: &str, case_sensitive: bool) -> &[SymbolT] {
-        if case_sensitive {
-            self.trie_exact.search(word)
-        } else {
-            self.trie_casefold.search(&case::to_casefolded_full(word))
-        }
+    fn lookup(&self, word: &str) -> Option<SymbolT> {
+        self.trie_exact.search(word).first().copied()
+    }
+
+    fn lookup_casefold(&self, word: &str) -> &[SymbolT] {
+        self.trie_casefold.search(&case::to_casefolded_full(word))
     }
 
     fn global_format(&self) -> Formatting {
@@ -64,7 +64,7 @@ impl Dictionary for ShadowDictionary {
         // text is used for verifying exact matches
         if let Some(start_casefold) = text_casefold.to_casefold(start) {
             self.trie_casefold.prefixes(&text_casefold.text_norm[start_casefold..]).iter().filter_map(|&prefix| {
-                if let Some(end_orig) = text_casefold.to_orig(start + prefix.length) {
+                if let Some(end_orig) = text_casefold.to_orig(start_casefold + prefix.length) {
                     let exact_case = if let Some(def) = self.defs.get(&prefix.id) {
                         text[start..end_orig] == def.def.word
                     } else {
@@ -72,8 +72,7 @@ impl Dictionary for ShadowDictionary {
                     };
                     Some(TokenizeResult {
                         id: prefix.id,
-                        start,
-                        end: end_orig,
+                        span: (start..end_orig).into(),
                         exact_case
                     })
                 } else { None }
@@ -83,7 +82,6 @@ impl Dictionary for ShadowDictionary {
             Vec::new()
         }
     }
-
 }
 
 impl DictionaryMut for ShadowDictionary {

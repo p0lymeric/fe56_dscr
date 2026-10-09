@@ -106,8 +106,12 @@ impl Dictionary for JsonDictionary {
         self.shadow.get(id)
     }
 
-    fn lookup(&self, word: &str, case_sensitive: bool) -> &[SymbolT] {
-        self.shadow.lookup(word, case_sensitive)
+    fn lookup(&self, word: &str) -> Option<SymbolT> {
+        self.shadow.lookup(word)
+    }
+
+    fn lookup_casefold(&self, word: &str) -> &[SymbolT] {
+        self.shadow.lookup_casefold(word)
     }
 
     fn global_format(&self) -> Formatting {
@@ -203,10 +207,10 @@ mod tests {
         assert_eq!(dict.get(-2).expect("Can't find -2").word, "WARD");
         assert_eq!(dict.get(-3).expect("Can't find -3").word, "UNTOWARD");
 
-        assert_eq!(dict.lookup("uNTO", false), &[-1]);
-        assert_eq!(dict.lookup("uNTO", true), &[] as &[SymbolT]);
-        assert_eq!(dict.lookup("WARD", false), &[-2]);
-        assert_eq!(dict.lookup("UNTOWARD", true), &[-3]);
+        assert_eq!(dict.lookup_casefold("uNTO"), &[-1]);
+        assert_eq!(dict.lookup("uNTO"), None);
+        assert_eq!(dict.lookup_casefold("WARD"), &[-2]);
+        assert_eq!(dict.lookup("UNTOWARD"), Some(-3));
     }
 
     #[test]
@@ -215,14 +219,14 @@ mod tests {
 
         let untoward_case_folded = dict.casefold("untoward");
 
-        assert_eq!(dict.tokenize_at("UNTOWARD", &untoward_case_folded, 0), &[TokenizeResult { id: -1, start: 0, end: 4, exact_case: true }, TokenizeResult { id: -3, start: 0, end: 8, exact_case: true }]);
+        assert_eq!(dict.tokenize_at("UNTOWARD", &untoward_case_folded, 0), &[TokenizeResult { id: -1, span: (0..4).into(), exact_case: true }, TokenizeResult { id: -3, span: (0..8).into(), exact_case: true }]);
         assert_eq!(dict.tokenize_at("UNTOWARD", &untoward_case_folded, 1), &[] as &[TokenizeResult]);
-        assert_eq!(dict.tokenize_at("UNTOWARD", &untoward_case_folded, 4), &[TokenizeResult { id: -2, start: 4, end: 8, exact_case: true }]);
+        assert_eq!(dict.tokenize_at("UNTOWARD", &untoward_case_folded, 4), &[TokenizeResult { id: -2, span: (4..8).into(), exact_case: true }]);
         assert_eq!(dict.tokenize_at("UNTOWARD", &untoward_case_folded, 5), &[] as &[TokenizeResult]);
 
         // panic!("{:?}", dict.tokenize_at("untoWARD", Some(&untoward_case_folded), 0));
-        assert_eq!(dict.tokenize_at("untoWARD", &untoward_case_folded, 0), &[TokenizeResult { id: -1, start: 0, end: 4, exact_case: false }, TokenizeResult { id: -3, start: 0, end: 8, exact_case: false }]);
-        assert_eq!(dict.tokenize_at("untoWARD", &untoward_case_folded, 4), &[TokenizeResult { id: -2, start: 4, end: 8, exact_case: true }]);
+        assert_eq!(dict.tokenize_at("untoWARD", &untoward_case_folded, 0), &[TokenizeResult { id: -1, span: (0..4).into(), exact_case: false }, TokenizeResult { id: -3, span: (0..8).into(), exact_case: false }]);
+        assert_eq!(dict.tokenize_at("untoWARD", &untoward_case_folded, 4), &[TokenizeResult { id: -2, span: (4..8).into(), exact_case: true }]);
     }
 
     #[test]
@@ -236,7 +240,7 @@ mod tests {
         let sus_case_folded = dict.casefold(sus);
 
         // panic!("{:?}", dict.tokenize_at(sus, &sus_case_folded, 0));
-        assert_eq!(dict.tokenize_at(sus, &sus_case_folded, 0), &[TokenizeResult { id: -3, start: 0, end: 3, exact_case: false }, TokenizeResult { id: -2, start: 0, end: 5, exact_case: true }, TokenizeResult { id: -1, start: 0, end: 5, exact_case: false }]);
+        assert_eq!(dict.tokenize_at(sus, &sus_case_folded, 0), &[TokenizeResult { id: -3, span: (0..3).into(), exact_case: false }, TokenizeResult { id: -2, span: (0..5).into(), exact_case: true }, TokenizeResult { id: -1, span: (0..5).into(), exact_case: false }]);
         // TODO more predictions
     }
 }

@@ -43,84 +43,95 @@ impl<T: Ord + Copy> Trie<T> {
     }
 
     pub fn insert(&mut self, id: T, word: &str) -> bool {
-        let mut terminal_node = &mut self.root;
+        let mut node = &mut self.root;
         for c in word.chars() {
-            terminal_node = terminal_node.children.entry(c).or_default();
+            node = node.children.entry(c).or_default();
         }
-        match terminal_node.ids.binary_search(&id) {
-            Err(pos) => { terminal_node.ids.insert(pos, id) },
+        match node.ids.binary_search(&id) {
+            Err(pos) => { node.ids.insert(pos, id) },
             _ => { return false; }
         };
         true
     }
 
     pub fn search(&self, word: &str) -> &[T] {
-        let mut next_node = &self.root;
+        let mut node = &self.root;
         for c in word.chars() {
-            let maybe_next_node = next_node.children.get(&c);
-            if let Some(nnext_node) = maybe_next_node {
-                next_node = nnext_node;
+            if let Some(next_node) = node.children.get(&c) {
+                node = next_node;
             } else {
                 return &[];
             }
         }
-        next_node.ids.as_slice()
+        node.ids.as_slice()
     }
 
     pub fn delete(&mut self, id: T, word: &str) -> bool {
-        let mut next_node = &self.root;
-        let mut deepest_cousin_branch = 0;
+        // A deletion can result in one of three actions:
+        // 1. If the ID is not found, nothing happens.
+        // 2. If the ID exists in a node alongside other IDs or children, the ID is removed from the node's vector.
+        // 3. If the ID exists alone in a node with no peer IDs or children,
+        //    the node and its parents are pruned at the youngest common ancestor with which the node has a cousin
+        //    or the root ancestor.
 
-        // TODO slice and use char_indices
-        for (d, c) in word.chars().enumerate() {
-            if !next_node.ids.is_empty() || next_node.children.len() > 1 {
-                deepest_cousin_branch = d;
+        // NB We use raw pointers to track two mutable pointers into the structure.
+        // It's difficult to express a similar single-pass deletion routine using Safe Rust.
+        let mut rnode = &raw mut self.root;
+        let mut maybe_youngest_ca_with_cousin: Option<(*mut TrieNode<T>, char)> = None;
+
+        // Seed the youngest common ancestor as the root
+        if let Some(c) = word.chars().next() {
+            maybe_youngest_ca_with_cousin = Some((rnode, c));
+        }
+
+        // Walk the trie to the requested word entry, recording any common ancestors of interest
+        for c in word.chars() {
+            let node = unsafe { &mut *rnode };
+            if !node.ids.is_empty() || node.children.len() > 1 {
+                maybe_youngest_ca_with_cousin = Some((rnode, c));
             }
-            let maybe_next_node = next_node.children.get(&c);
-            if let Some(nnext_node) = maybe_next_node {
-                next_node = nnext_node;
+            if let Some(next_node) = node.children.get_mut(&c) {
+                rnode = next_node;
             } else {
+                // Not found, trie does not contain the word
                 return false;
             }
         }
 
-        if next_node.ids.binary_search(&id).is_err() {
-            return false;
-        }
-
-        let prune = !word.is_empty() && next_node.ids.len() == 1 && next_node.children.is_empty();
-        let mut next_node = &mut self.root;
-        if prune {
-            for c in word.chars().take(deepest_cousin_branch) {
-                next_node = next_node.children.get_mut(&c).expect("Should be impossible to fault here");
+        let node = unsafe { &mut *rnode };
+        match node.ids.binary_search(&id) {
+            Ok(vec_pos_to_delete) => {
+                // If the entry holding the ID to be removed contains other IDs or has children, just remove the ID
+                // Otherwise prune the trie at the common ancestor identified earlier
+                if let Some(youngest_ca_with_cousin) = maybe_youngest_ca_with_cousin && node.ids.len() == 1 && node.children.is_empty() {
+                    let (rca, c) = youngest_ca_with_cousin;
+                    let ca = unsafe { &mut *rca };
+                    ca.children.remove(&c);
+                } else {
+                    // By necessity these conditions will hold in this branch
+                    debug_assert!(word.is_empty() || node.ids.len() > 1 || !node.children.is_empty());
+                    node.ids.remove(vec_pos_to_delete);
+                }
+                true
             }
-            let delete_key = word.chars().nth(deepest_cousin_branch).expect("Should be impossible to fault here");
-            next_node.children.remove(&delete_key);
-        } else {
-            for c in word.chars() {
-                next_node = next_node.children.get_mut(&c).expect("Should be impossible to fault here");
-            }
-            match next_node.ids.binary_search(&id) {
-                Ok(pos) => { next_node.ids.remove(pos) },
-                _ => panic!("Should be impossible to fault here")
-            };
+            // Not found, requested ID was not found in the word entry
+            _ => {
+                false
+            },
         }
-
-        true
     }
 
     pub fn prefixes(&self, text: &str) -> Vec<TriePrefix<T>> {
         let mut result: Vec<TriePrefix<T>> = Vec::new();
-        let mut next_node = &self.root;
-        for id in &next_node.ids {
+        let mut node = &self.root;
+        for id in &node.ids {
             // Evil zero-length match. Perhaps this should be disallowed...
             result.push(TriePrefix { id: *id, length: 0 });
         }
         for (off, c) in text.char_indices() {
-            let maybe_next_node = next_node.children.get(&c);
-            if let Some(nnext_node) = maybe_next_node {
-                next_node = nnext_node;
-                for id in &next_node.ids {
+            if let Some(next_node) = node.children.get(&c) {
+                node = next_node;
+                for id in &node.ids {
                     // Remember that UTF-8 characters span a variable number of bytes
                     // "off + c.len_utf8()" points to one past the end of the current character
                     result.push(TriePrefix { id: *id, length: off + c.len_utf8() });
