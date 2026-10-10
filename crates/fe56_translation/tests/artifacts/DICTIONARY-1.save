@@ -1,0 +1,2222 @@
+{
+    "wordDict": {
+        "keys": [
+            -2,
+            -5,
+            -4,
+            -6,
+            -8,
+            -7,
+            -1,
+            -10,
+            -3,
+            -11,
+            -12,
+            -13,
+            -9,
+            -14,
+            -15,
+            -16,
+            -17,
+            -20,
+            -18,
+            -21,
+            -22,
+            -19,
+            -23,
+            -24,
+            -25,
+            -27,
+            -28,
+            -26,
+            -29,
+            -30,
+            -31,
+            -32,
+            -33,
+            -36,
+            -37,
+            -34,
+            -35,
+            -38,
+            -39,
+            -40,
+            -41,
+            -42,
+            -43,
+            -44,
+            -45,
+            -46,
+            -47,
+            -48,
+            -49,
+            -50,
+            -51,
+            -52,
+            -54,
+            -53,
+            -55,
+            -56,
+            -57,
+            -58,
+            -59,
+            -60,
+            -61,
+            -62,
+            -63,
+            -64,
+            -65,
+            -69,
+            -66,
+            -67,
+            -72,
+            -73,
+            -74,
+            -68,
+            -75,
+            -76,
+            -70,
+            -71,
+            -77,
+            -79,
+            -80,
+            -83,
+            -84,
+            -85,
+            -86,
+            -87,
+            -88,
+            -89,
+            -90,
+            -141,
+            -91,
+            -92,
+            -93,
+            -140,
+            -139,
+            -94,
+            -95,
+            -96,
+            -97,
+            -98,
+            -99,
+            -101,
+            -78,
+            -81,
+            -82,
+            -102,
+            -103,
+            -144,
+            -104,
+            -105,
+            -100,
+            -106,
+            -110,
+            -111,
+            -114,
+            -115,
+            -116,
+            -117,
+            -108,
+            -109,
+            -107,
+            -118,
+            -119,
+            -120,
+            -122,
+            -123,
+            -124,
+            -125,
+            -126,
+            -127,
+            -128,
+            -129,
+            -130,
+            -121,
+            -131,
+            -132,
+            -133,
+            -134,
+            -112,
+            -113,
+            -135,
+            -149,
+            -151,
+            -150,
+            -136,
+            -138,
+            -143,
+            -142,
+            -146,
+            -147,
+            -145,
+            -154,
+            -155,
+            -148,
+            -152,
+            -156,
+            -157,
+            -153,
+            -137,
+            -158,
+            -159,
+            -160,
+            -161,
+            -162,
+            -163,
+            -164,
+            -165,
+            -166,
+            -167,
+            -168,
+            -169,
+            -170,
+            -172,
+            -174,
+            -171,
+            -175,
+            -176,
+            -177,
+            -173,
+            -178,
+            -179,
+            -180,
+            -181,
+            -182,
+            -183,
+            -184,
+            -185,
+            -186,
+            -187,
+            -188,
+            -189,
+            -190,
+            -191,
+            -192,
+            -193,
+            -194,
+            -195,
+            -196,
+            -197,
+            -198,
+            -199,
+            -200,
+            -201,
+            -202,
+            -203,
+            -204,
+            -205,
+            -206,
+            -207,
+            -208,
+            -209,
+            -210,
+            -212,
+            -211,
+            -213,
+            -214,
+            -215,
+            -216,
+            -217,
+            -218,
+            -220,
+            -221,
+            -219,
+            -222,
+            -223,
+            -224,
+            -225,
+            -226,
+            -227,
+            -228,
+            -229,
+            -230,
+            -231,
+            -232,
+            -233,
+            -234,
+            -235,
+            -236,
+            -237,
+            -238,
+            -239,
+            -240,
+            -241,
+            -242,
+            -243,
+            -244,
+            -245
+        ],
+        "values": [
+            ";",
+            "+",
+            "=",
+            "*",
+            "/",
+            "-",
+            "M",
+            ".",
+            ",",
+            "X",
+            "?",
+            "TBL",
+            "^",
+            "(",
+            ")",
+            "VEC",
+            "LNE",
+            "NRM",
+            "PLY",
+            "PER",
+            "ARA",
+            "OBJ",
+            "CNT",
+            "RND",
+            "ETC",
+            "T",
+            "F",
+            "PROP",
+            "NOT",
+            "AND",
+            "OR",
+            ">",
+            "<",
+            "=>",
+            "IF",
+            ">ARA",
+            "<ARA",
+            "MAKE",
+            "MOVE",
+            "OUT",
+            "IN",
+            "CONCEPT",
+            "BACKREF",
+            "METEORITE",
+            "ET",
+            "TERR",
+            "CIRC",
+            "SPH",
+            "XX",
+            "YY",
+            "ZZ",
+            "SLD",
+            "CLR",
+            "PLOT",
+            "ELEM",
+            "ATOM",
+            "CULE",
+            "-REACT->",
+            "REACTION",
+            "PROT",
+            "NEUT",
+            "ELEC",
+            "ISOT",
+            "FISS",
+            "TT",
+            "HESHL",
+            "SPEED",
+            "C",
+            "LIGHT-HESHL",
+            "ET-METER",
+            "MASS",
+            "UNIT",
+            "FE-GRAM",
+            "ET-EARTH-MASS",
+            "ET-YEAR",
+            "ET-LUN-MON",
+            "XOR",
+            "NOUN",
+            "VERB",
+            "SUBJECT",
+            "OBJECT",
+            "ACTION",
+            "ACTS_ON",
+            "OPPOSITE",
+            "DESTROY",
+            "FUSION",
+            "STAR",
+            "ET-SOL",
+            "DISPLACEMENT",
+            "ORBIT",
+            "PLANET",
+            "ET-EARTH",
+            "EARTH",
+            "MOON",
+            "WHITEDWARF",
+            "NEUTRONSTAR",
+            "BLACKHOLE",
+            "GALAXY",
+            "IS_A",
+            "LIFE",
+            "WORD",
+            "ADJECTIVE",
+            "PREPOSITION",
+            "ORGANIC",
+            "H-COMPOUND",
+            "REPRODUCTION",
+            "ABSTRACT",
+            "CONCRETE",
+            "IS",
+            "EXTREME",
+            "ALL",
+            "NULL",
+            "AVERAGE",
+            "MOST",
+            "FEW",
+            "APPROXIMATELY",
+            "BIG",
+            "SMALL",
+            "VERY",
+            "PAST",
+            "PRESENT",
+            "FUTURE",
+            "BEFORE",
+            "KNOWN",
+            "UNKNOWN",
+            "MATTER",
+            "INFINITY",
+            "DESIRE",
+            "INSTANCE",
+            "ET-PERSON",
+            "TERR-PERSON",
+            "MOMENT",
+            "LIFEFORM",
+            "BORN",
+            "DIE",
+            "LIVE",
+            "LOWEST",
+            "HIGHEST",
+            "LIFESPAN",
+            "YOUNG",
+            "ELDERLY",
+            "MIDAGED",
+            "ET-COMMUNICATOR",
+            "TER-COMMUNICATOR",
+            "PARENT",
+            "CHILD",
+            "TENTACLE",
+            "BODY",
+            "CAN",
+            "GOOD",
+            "BAD",
+            "CONSUME",
+            "THINK",
+            "MORAL",
+            "IMMORAL",
+            "LOVE",
+            "ET-OTHER",
+            "BLOCK",
+            "COMPOUND",
+            "ORGAN",
+            "PHOTON",
+            "EYE",
+            "SEE",
+            "TEMPERATURE",
+            "SOLID",
+            "LIQUID",
+            "GASEOUS",
+            "ET-MYA",
+            "INSIDE",
+            "OUTSIDE",
+            "ATMOSPHERE",
+            "CHANGE",
+            "FACE",
+            "CLOSE",
+            "DAY-FACE",
+            "NIGHT-FACE",
+            "OCEAN",
+            "SUCCESSION",
+            "ANIMAL",
+            "PLANT",
+            "CARNIVOROUS",
+            "HERBIVOROUS",
+            "AQUATIC",
+            "TERRESTRIAL",
+            "PLANTPLANT",
+            "COMMUTATIVE",
+            "POSITIVE",
+            "NEGATIVE",
+            "ATTRACT",
+            "REPEL",
+            "CHARGE",
+            "CHARGESENSOR",
+            "BRAIN",
+            "INTELLIGENT",
+            "LANGUAGE",
+            "SAY",
+            "DISCOVERY",
+            "TEAMWORK",
+            "COLLECTIVE",
+            "TRUTH",
+            "BELIEF",
+            "BELIEVE",
+            "SOCIALNORM",
+            "COMMANDMENTS",
+            "CMD-A",
+            "CMD-B",
+            "CMD-C",
+            "CMD-D",
+            "CMD-E",
+            "PHILOSOPHY",
+            "PHIL-A",
+            "PHIL-B",
+            "VIRTUOUS",
+            "TEACH",
+            "FRIEND",
+            "PERFORM-CAPABLE",
+            "ELEC-CONVERSE",
+            "VISU-CONVERSE",
+            "SWIM",
+            "FLY",
+            "WALK",
+            "ATHLETIC",
+            "VARIED",
+            "TALENTED",
+            "COMPETE",
+            "PERFORMANCE",
+            "SPECIALIZATION",
+            "SPECIALIZE",
+            "SYMMETRY",
+            "SUFFER",
+            "TENT-DIE",
+            "BODY-DIE",
+            "HATE",
+            "LIVING",
+            "LEGACY",
+            "LIMITING",
+            "KNOWLEDGE",
+            "TRIVIAL",
+            "COORDINATE",
+            "ENERGY",
+            "COMPUTER",
+            "FUSION-REACTOR",
+            "GOODBYE",
+            "HELLO",
+            "HOPE"
+        ]
+    },
+    "descDict": {
+        "keys": [
+            -2,
+            -5,
+            -4,
+            -6,
+            -8,
+            -7,
+            -1,
+            -10,
+            -3,
+            -11,
+            -12,
+            -13,
+            -9,
+            -14,
+            -15,
+            -16,
+            -17,
+            -20,
+            -18,
+            -21,
+            -22,
+            -19,
+            -23,
+            -24,
+            -25,
+            -27,
+            -28,
+            -26,
+            -29,
+            -30,
+            -31,
+            -32,
+            -33,
+            -36,
+            -37,
+            -34,
+            -35,
+            -38,
+            -39,
+            -40,
+            -41,
+            -42,
+            -43,
+            -44,
+            -45,
+            -46,
+            -47,
+            -48,
+            -49,
+            -50,
+            -51,
+            -52,
+            -54,
+            -53,
+            -55,
+            -56,
+            -57,
+            -58,
+            -59,
+            -60,
+            -61,
+            -62,
+            -63,
+            -64,
+            -65,
+            -69,
+            -66,
+            -67,
+            -72,
+            -73,
+            -74,
+            -68,
+            -75,
+            -76,
+            -70,
+            -71,
+            -77,
+            -79,
+            -80,
+            -83,
+            -84,
+            -85,
+            -86,
+            -87,
+            -88,
+            -89,
+            -90,
+            -141,
+            -91,
+            -92,
+            -93,
+            -140,
+            -139,
+            -94,
+            -95,
+            -96,
+            -97,
+            -98,
+            -99,
+            -101,
+            -78,
+            -81,
+            -82,
+            -102,
+            -103,
+            -144,
+            -104,
+            -105,
+            -100,
+            -106,
+            -110,
+            -111,
+            -114,
+            -115,
+            -116,
+            -117,
+            -108,
+            -109,
+            -107,
+            -118,
+            -119,
+            -120,
+            -122,
+            -123,
+            -124,
+            -125,
+            -126,
+            -127,
+            -128,
+            -129,
+            -130,
+            -121,
+            -131,
+            -132,
+            -133,
+            -134,
+            -112,
+            -113,
+            -135,
+            -149,
+            -151,
+            -150,
+            -136,
+            -138,
+            -143,
+            -142,
+            -146,
+            -147,
+            -145,
+            -154,
+            -155,
+            -148,
+            -152,
+            -156,
+            -157,
+            -153,
+            -137,
+            -158,
+            -159,
+            -160,
+            -161,
+            -162,
+            -163,
+            -164,
+            -165,
+            -166,
+            -167,
+            -168,
+            -169,
+            -170,
+            -172,
+            -174,
+            -171,
+            -175,
+            -176,
+            -177,
+            -173,
+            -178,
+            -179,
+            -180,
+            -181,
+            -182,
+            -183,
+            -184,
+            -185,
+            -186,
+            -187,
+            -188,
+            -189,
+            -190,
+            -191,
+            -192,
+            -193,
+            -194,
+            -195,
+            -196,
+            -197,
+            -198,
+            -199,
+            -200,
+            -201,
+            -202,
+            -203,
+            -204,
+            -205,
+            -206,
+            -207,
+            -208,
+            -209,
+            -210,
+            -212,
+            -211,
+            -213,
+            -214,
+            -215,
+            -216,
+            -217,
+            -218,
+            -220,
+            -221,
+            -219,
+            -222,
+            -223,
+            -224,
+            -225,
+            -226,
+            -227,
+            -228,
+            -229,
+            -230,
+            -231,
+            -232,
+            -233,
+            -234,
+            -235,
+            -236,
+            -237,
+            -238,
+            -239,
+            -240,
+            -241,
+            -242,
+            -243,
+            -244,
+            -245
+        ],
+        "values": [
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 2,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 2,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 2,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 2,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 2,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 2,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 0,
+                "formatModeAfter": 0,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 0,
+                "formatModeAfter": 0,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 0,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 0,
+                "formatModeAfter": 0,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 2,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 2,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 0,
+                "formatModeAfter": 0,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 0,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 2,
+                "formatModeAfter": 0,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 2,
+                "formatModeAfter": 0,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 2,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 2,
+                "formatModeAfter": 0,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 2,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 2,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 2,
+                "formatModeAfter": 0,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 2,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 2,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 2,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 0,
+                "formatModeAfter": 0,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 0,
+                "formatModeAfter": 0,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 2,
+                "formatModeAfter": 0,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 2,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 2,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 2,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 2,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 2,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 2,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 2,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 2,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 2,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 2,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 0,
+                "formatModeAfter": 0,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 0,
+                "formatModeAfter": 0,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 2,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 2,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 2,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 0,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 2,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 0,
+                "formatModeAfter": 0,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 0,
+                "formatModeAfter": 0,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 0,
+                "formatModeAfter": 0,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 2,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 0,
+                "formatModeAfter": 0,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 0,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 2,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "\"big\" is funny",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "\"History\"",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            },
+            {
+                "desc": "??? ADD NOTES HERE ???",
+                "formatMode": 1,
+                "formatModeAfter": 1,
+                "breakOnDouble": false
+            }
+        ]
+    },
+    "id": 1,
+    "beforeUserDefaultMode": 1,
+    "afterUserDefaultMode": 1
+}

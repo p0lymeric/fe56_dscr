@@ -6,3 +6,10 @@ edition = "2024"
 [dependencies]
 fe56_ucd_sys = { path = "../fe56_ucd_sys" }
 serde_json = { version = "1.0", features = ["preserve_order"] }
+
+[dev-dependencies]
+criterion.workspace = true
+
+[[bench]]
+name = "big_dict_energy"
+harness = false

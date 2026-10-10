@@ -4,9 +4,10 @@ use std::io::{BufRead, BufReader};
 use eframe::egui;
 use egui::{Color32, FontId};
 use fe56_translation::compiler::SymbolizerErrorKind::{AmbiguousSpan, EntryNotFound};
+use fe56_translation::compiler::mwis::MwisSymbolizer;
 use fe56_translation::dictionary::json::JsonDictionary;
 use fe56_translation::dictionary::{Definition, Dictionary, DictionaryMut, Formatting, TokenizeResultKind};
-use fe56_translation::compiler::{MwisSymbolizer, Symbolized, Symbolizer, SymbolizerToken};
+use fe56_translation::compiler::{Symbolized, Symbolizer, SymbolizerToken};
 
 fn main() {
     let native_options = eframe::NativeOptions::default();
@@ -26,39 +27,28 @@ impl MyEguiApp {
         // Use the cc.gl (a glow::Context) to create graphics shaders and buffers that you can use
         // for e.g. egui::PaintCallback.
         let mut result = Self {
-            dictionary: JsonDictionary::new(Some(&read_to_string("C:\\Games\\TMDSDecomp\\save\\DICTIONARY-1.save").unwrap())).unwrap(),
+            dictionary: JsonDictionary::new(Some(include_str!("../../fe56_translation/tests/artifacts/DICTIONARY-1.save"))).unwrap(),
             my_string: String::new(),
             my_tokenization: Symbolized { tokens: Vec::new(), errors: Vec::new() },
         };
-        // let esdb_src = fs::File::open("esdb.txt").unwrap();
-        // let esdb_rd = BufReader::new(esdb_src);
-        // let mut in_preamble = true;
-        // let mut id = -1000;
-        // for line in esdb_rd.lines() {
-        //     let lineu = &line.unwrap();
-        //     let linet = lineu.trim();
-        //     if in_preamble {
-        //         if linet == "---" {
-        //             in_preamble = false;
-        //         }
-        //         continue;
-        //     }
-        //     let line_uppercase = fe56_translation::case::to_uppercase_simple(linet);
-        //     if result.dictionary.lookup(&line_uppercase) == None {
-        //         result.dictionary.add(id, Definition { word: line_uppercase, desc: "".to_string(), format: Formatting::DEFAULT });
-        //         id -= 1;
-        //     }
-        // }
-        // result.dictionary.add(-1, Definition { word: "UNTO".to_string(), desc: "desc".to_string(), format: Formatting::DEFAULT });
-        // result.dictionary.add(-2, Definition { word: "WARD".to_string(), desc: "desc".to_string(), format: Formatting::DEFAULT });
-        // result.dictionary.add(-3, Definition { word: "UNTOWARD".to_string(), desc: "desc".to_string(), format: Formatting::DEFAULT });
-        // result.dictionary.add(-4, Definition { word: "fußy".to_string(), desc: "desc".to_string(), format: Formatting::DEFAULT });
-        // result.dictionary.add(-5, Definition { word: "FUSSY".to_string(), desc: "desc".to_string(), format: Formatting::DEFAULT });
-        // result.dictionary.add(-6, Definition { word: "fus".to_string(), desc: "desc".to_string(), format: Formatting::DEFAULT });
-        // result.dictionary.add(-7, Definition { word: "x".to_string(), desc: "desc".to_string(), format: Formatting::DEFAULT });
-        // result.dictionary.add(-8, Definition { word: "xx".to_string(), desc: "desc".to_string(), format: Formatting::DEFAULT });
-        // result.dictionary.add(-9, Definition { word: "esdo".to_string(), desc: "desc".to_string(), format: Formatting::DEFAULT });
-        // result.dictionary.add(-10, Definition { word: "dodo".to_string(), desc: "desc".to_string(), format: Formatting::DEFAULT });
+        let esdb_str = include_str!("../../fe56_translation/tests/artifacts/third_party/esdb.txt");
+        let mut in_preamble = true;
+        let mut id = -1000;
+        for line in esdb_str.lines() {
+            let linet = line.trim();
+            if in_preamble {
+                if linet == "---" {
+                    in_preamble = false;
+                }
+                continue;
+            }
+            let line_uppercase = fe56_translation::case::to_uppercase_simple(linet);
+            if result.dictionary.lookup(&line_uppercase) == None {
+                result.dictionary.add(id, Definition { word: line_uppercase, desc: "".to_string(), format: Formatting::DEFAULT });
+                id -= 1;
+            }
+        }
+        result.dictionary.add(-10000000, Definition { word: "fußy".to_string(), desc: "desc".to_string(), format: Formatting::DEFAULT });
         result
     }
 }
