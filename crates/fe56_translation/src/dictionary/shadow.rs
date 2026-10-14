@@ -65,11 +65,7 @@ impl Dictionary for ShadowDictionary {
         if let Some(start_casefold) = text_casefold.to_casefold(start) {
             self.trie_casefold.prefixes(&text_casefold.text_norm[start_casefold..]).iter().filter_map(|&prefix| {
                 if let Some(end_orig) = text_casefold.to_orig(start_casefold + prefix.length) {
-                    let exact_case = if let Some(def) = self.defs.get(&prefix.id) {
-                        text[start..end_orig] == def.def.word
-                    } else {
-                        false
-                    };
+                    let exact_case = self.trie_exact.present(prefix.id, &text[start..end_orig]);
                     Some(TokenizeResult {
                         kind: if exact_case { TokenizeResultKind::WordExact } else { TokenizeResultKind::WordInexact },
                         id: prefix.id,

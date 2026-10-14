@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use rustc_hash::FxHashMap;
 
 // Trie for whole-dictionary prefix matching
 // polymeric 2026
@@ -10,7 +10,7 @@ pub struct Trie<T> {
 
 #[derive(Debug, Clone)]
 pub struct TrieNode<T> {
-    children: HashMap<char, TrieNode<T>>,
+    children: FxHashMap<char, TrieNode<T>>,
     ids: Vec<T>,
 }
 
@@ -23,7 +23,7 @@ pub struct TriePrefix<T> {
 impl<T> TrieNode<T> {
     pub fn new() -> Self {
         TrieNode {
-            children: HashMap::new(),
+            children: FxHashMap::default(),
             ids: Vec::new(),
         }
     }
@@ -64,6 +64,22 @@ impl<T: Ord + Copy> Trie<T> {
             }
         }
         node.ids.as_slice()
+    }
+
+    pub fn present(&self, id: T, word: &str) -> bool {
+        let mut node = &self.root;
+        for c in word.chars() {
+            if let Some(next_node) = node.children.get(&c) {
+                node = next_node;
+            } else {
+                // Not found, trie does not contain the word
+                return false;
+            }
+        }
+        match node.ids.binary_search(&id) {
+            Ok(_) => { return true; },
+            _ => { return false; }
+        }
     }
 
     pub fn delete(&mut self, id: T, word: &str) -> bool {

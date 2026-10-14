@@ -5,6 +5,7 @@
 pub struct Casefolded {
     pub text_norm: String,
     pub offsets: Vec<(usize, usize)>,
+    pub direct_mapping: bool,
 }
 
 impl Casefolded {
@@ -13,23 +14,38 @@ impl Casefolded {
         // using Unicode's Case_Folding (C + F) table (TR44)
         let mut text_norm = String::with_capacity(s.len());
         let mut offsets = Vec::with_capacity(s.len() + 1);
+        let mut direct_mapping = true;
         for (orig, x) in s.char_indices() {
             offsets.push((orig, text_norm.len()));
+            if orig != text_norm.len() {
+                direct_mapping = false;
+            }
             match fe56_ucd_sys::CASEFOLD_FULL.binary_search_by_key(&x, |(k, _v)| *k) {
                 Ok(i) => text_norm.push_str(fe56_ucd_sys::CASEFOLD_FULL[i].1),
                 _ => text_norm.push(x)
             }
         }
         offsets.push((s.len(), text_norm.len()));
-        Casefolded { text_norm, offsets }
+        if s.len() != text_norm.len() {
+            direct_mapping = false;
+        }
+        Casefolded { text_norm, offsets, direct_mapping }
     }
 
     pub fn to_orig(&self, offset: usize) -> Option<usize> {
-       self.offsets.binary_search_by_key(&offset, |(_orig, casefold)| *casefold).ok().map(|i| self.offsets[i].0)
+        if self.direct_mapping {
+            Some(offset)
+        } else {
+            self.offsets.binary_search_by_key(&offset, |(_orig, casefold)| *casefold).ok().map(|i| self.offsets[i].0)
+        }
     }
 
     pub fn to_casefold(&self, offset: usize) -> Option<usize> {
-        self.offsets.binary_search_by_key(&offset, |(orig, _casefold)| *orig).ok().map(|i| self.offsets[i].1)
+        if self.direct_mapping {
+            Some(offset)
+        } else {
+            self.offsets.binary_search_by_key(&offset, |(orig, _casefold)| *orig).ok().map(|i| self.offsets[i].1)
+        }
     }
 }
 
