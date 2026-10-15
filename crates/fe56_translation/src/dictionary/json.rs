@@ -126,8 +126,8 @@ impl Dictionary for JsonDictionary {
         self.shadow.casefold(text)
     }
 
-    fn tokenize_at(&self, text: &str, text_casefold: &case::Casefolded, start: usize, out: &mut Vec<TokenizeResult>) {
-        self.shadow.tokenize_at(text, text_casefold, start, out)
+    fn tokenize_at(&self, text: &str, text_casefold: &case::Casefolded, end: usize, out: &mut Vec<TokenizeResult>) {
+        self.shadow.tokenize_at(text, text_casefold, end, out)
     }
 
 }

@@ -14,8 +14,8 @@ use std::collections::BTreeMap;
 pub struct ShadowDictionary {
     defs: BTreeMap<SymbolT, CasefoldableDefinition>,
     global_format: Formatting,
-    trie_exact: trie::Trie<SymbolT>,
-    trie_casefold: trie::Trie<SymbolT>,
+    trie_exact: trie::RTrie<SymbolT>,
+    trie_casefold: trie::RTrie<SymbolT>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -29,8 +29,8 @@ impl ShadowDictionary {
         Self {
             defs: BTreeMap::new(),
             global_format: Formatting::DEFAULT,
-            trie_exact: trie::Trie::new(),
-            trie_casefold: trie::Trie::new(),
+            trie_exact: trie::RTrie::new(),
+            trie_casefold: trie::RTrie::new(),
         }
     }
 }
@@ -61,16 +61,16 @@ impl Dictionary for ShadowDictionary {
         case::Casefolded::new(text)
     }
 
-    fn tokenize_at(&self, text: &str, text_casefold: &case::Casefolded, start: usize, out: &mut Vec<TokenizeResult>) {
+    fn tokenize_at(&self, text: &str, text_casefold: &case::Casefolded, end: usize, out: &mut Vec<TokenizeResult>) {
         // text is used for verifying exact matches
-        let start_casefold = text_casefold.to_casefold(start);
-        out.extend(self.trie_casefold.prefixes(&text_casefold.text_norm[start_casefold..]).map(move |prefix| {
-            let end_orig = text_casefold.to_orig(start_casefold + prefix.length);
-            let exact_case = self.lookup(&text[start..end_orig]) == Some(prefix.id);
+        let end_casefold = text_casefold.to_casefold(end);
+        out.extend(self.trie_casefold.suffixes(&text_casefold.text_norm[..end_casefold]).map(move |result| {
+            let start_orig = text_casefold.to_orig(end_casefold - result.length);
+            let exact_case = self.lookup(&text[start_orig..end]) == Some(result.id);
             TokenizeResult {
                 kind: if exact_case { TokenizeResultKind::WordExact } else { TokenizeResultKind::WordInexact },
-                id: prefix.id,
-                span: (start..end_orig).into()
+                id: result.id,
+                span: (start_orig..end).into()
             }
         }))
     }

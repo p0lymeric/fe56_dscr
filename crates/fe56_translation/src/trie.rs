@@ -1,50 +1,52 @@
 use rustc_hash::FxHashMap;
 
-// Trie for whole-dictionary prefix matching
+// Trie for whole-dictionary suffix matching
+// The structure stores string sequences backwards so they may be visited in a specific order.
+// Not a suffix trie. A trie of reversed strings. An eirt?
 // polymeric 2026
 
 #[derive(Debug, Clone)]
-pub struct Trie<T> {
-    root: TrieNode<T>
+pub struct RTrie<T> {
+    root: RTrieNode<T>
 }
 
 #[derive(Debug, Clone)]
-pub struct TrieNode<T> {
-    children: FxHashMap<char, TrieNode<T>>,
+pub struct RTrieNode<T> {
+    children: FxHashMap<char, RTrieNode<T>>,
     ids: Vec<T>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct TriePrefix<T> {
+pub struct RTrieResult<T> {
     pub id: T,
     pub length: usize,
 }
 
-impl<T> TrieNode<T> {
+impl<T> RTrieNode<T> {
     pub fn new() -> Self {
-        TrieNode {
+        RTrieNode {
             children: FxHashMap::default(),
             ids: Vec::new(),
         }
     }
 }
 
-impl<T> Default for TrieNode<T> {
+impl<T> Default for RTrieNode<T> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<T: Ord + Copy> Trie<T> {
+impl<T: Ord + Copy> RTrie<T> {
     pub fn new() -> Self {
         Self {
-            root: TrieNode::new()
+            root: RTrieNode::new()
         }
     }
 
     pub fn insert(&mut self, id: T, word: &str) -> bool {
         let mut node = &mut self.root;
-        for c in word.chars() {
+        for c in word.chars().rev() {
             node = node.children.entry(c).or_default();
         }
         match node.ids.binary_search(&id) {
@@ -56,7 +58,7 @@ impl<T: Ord + Copy> Trie<T> {
 
     pub fn search(&self, word: &str) -> &[T] {
         let mut node = &self.root;
-        for c in word.chars() {
+        for c in word.chars().rev() {
             if let Some(next_node) = node.children.get(&c) {
                 node = next_node;
             } else {
@@ -77,15 +79,15 @@ impl<T: Ord + Copy> Trie<T> {
         // NB We use raw pointers to track two mutable pointers into the structure.
         // It's difficult to express a similar single-pass deletion routine using Safe Rust.
         let mut rnode = &raw mut self.root;
-        let mut maybe_youngest_ca_with_cousin: Option<(*mut TrieNode<T>, char)> = None;
+        let mut maybe_youngest_ca_with_cousin: Option<(*mut RTrieNode<T>, char)> = None;
 
         // Seed the youngest common ancestor as the root
-        if let Some(c) = word.chars().next() {
+        if let Some(c) = word.chars().rev().next() {
             maybe_youngest_ca_with_cousin = Some((rnode, c));
         }
 
         // Walk the trie to the requested word entry, recording any common ancestors of interest
-        for c in word.chars() {
+        for c in word.chars().rev() {
             let node = unsafe { &mut *rnode };
             if !node.ids.is_empty() || node.children.len() > 1 {
                 maybe_youngest_ca_with_cousin = Some((rnode, c));
@@ -121,14 +123,14 @@ impl<T: Ord + Copy> Trie<T> {
         }
     }
 
-    pub fn prefixes(&self, text: &str) -> impl Iterator<Item = TriePrefix<T>> {
+    pub fn suffixes(&self, text: &str) -> impl Iterator<Item = RTrieResult<T>> {
         let mut node = &self.root;
-        let mut text_iter = text.chars();
+        let mut text_iter = text.chars().rev();
         let mut node_ids_iter = node.ids.iter();
         let mut length = 0usize;
         std::iter::from_fn(move || loop {
             if let Some(id) = node_ids_iter.next() {
-                return Some(TriePrefix { id: *id, length });
+                return Some(RTrieResult { id: *id, length });
             }
             if let Some(c) = text_iter.next() {
                 if let Some(next_node) = node.children.get(&c) {
@@ -146,7 +148,7 @@ impl<T: Ord + Copy> Trie<T> {
     }
 }
 
-impl<T: Ord + Copy> Default for Trie<T> {
+impl<T: Ord + Copy> Default for RTrie<T> {
     fn default() -> Self {
         Self::new()
     }
