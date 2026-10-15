@@ -102,7 +102,7 @@ pub trait Dictionary {
     fn iter(&self) -> Box<dyn Iterator<Item = (&SymbolT, &Definition)> + '_>;
 
     fn casefold(&self, text: &str) -> case::Casefolded;
-    fn tokenize_at(&self, text: &str, text_casefold: &case::Casefolded, start: usize) -> Vec<TokenizeResult>;
+    fn tokenize_at(&self, text: &str, text_casefold: &case::Casefolded, start: usize, out: &mut Vec<TokenizeResult>);
 }
 
 pub trait DictionaryMut {

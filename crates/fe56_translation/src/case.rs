@@ -32,19 +32,21 @@ impl Casefolded {
         Casefolded { text_norm, offsets, direct_mapping }
     }
 
-    pub fn to_orig(&self, offset: usize) -> Option<usize> {
+    pub fn to_orig(&self, offset: usize) -> usize {
         if self.direct_mapping {
-            Some(offset)
+            offset
         } else {
-            self.offsets.binary_search_by_key(&offset, |(_orig, casefold)| *casefold).ok().map(|i| self.offsets[i].0)
+            // TODO performance optimization: Use 2 index-to-index mapping arrays in Casefolded for the non-1-1 case.
+            self.offsets.binary_search_by_key(&offset, |(_orig, casefold)| *casefold).ok().map(|i| self.offsets[i].0).unwrap_or(offset)
         }
     }
 
-    pub fn to_casefold(&self, offset: usize) -> Option<usize> {
+    pub fn to_casefold(&self, offset: usize) -> usize {
         if self.direct_mapping {
-            Some(offset)
+            offset
         } else {
-            self.offsets.binary_search_by_key(&offset, |(orig, _casefold)| *orig).ok().map(|i| self.offsets[i].1)
+            // TODO performance optimization: Use 2 index-to-index mapping arrays in Casefolded for the non-1-1 case.
+            self.offsets.binary_search_by_key(&offset, |(orig, _casefold)| *orig).ok().map(|i| self.offsets[i].1).unwrap_or(offset)
         }
     }
 }

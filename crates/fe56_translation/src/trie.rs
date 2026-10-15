@@ -66,22 +66,6 @@ impl<T: Ord + Copy> Trie<T> {
         node.ids.as_slice()
     }
 
-    pub fn present(&self, id: T, word: &str) -> bool {
-        let mut node = &self.root;
-        for c in word.chars() {
-            if let Some(next_node) = node.children.get(&c) {
-                node = next_node;
-            } else {
-                // Not found, trie does not contain the word
-                return false;
-            }
-        }
-        match node.ids.binary_search(&id) {
-            Ok(_) => { return true; },
-            _ => { return false; }
-        }
-    }
-
     pub fn delete(&mut self, id: T, word: &str) -> bool {
         // A deletion can result in one of three actions:
         // 1. If the ID is not found, nothing happens.
@@ -137,26 +121,28 @@ impl<T: Ord + Copy> Trie<T> {
         }
     }
 
-    pub fn prefixes(&self, text: &str) -> Vec<TriePrefix<T>> {
-        let mut result: Vec<TriePrefix<T>> = Vec::new();
+    pub fn prefixes(&self, text: &str) -> impl Iterator<Item = TriePrefix<T>> {
         let mut node = &self.root;
-        for id in &node.ids {
-            // Evil zero-length match. Perhaps this should be disallowed...
-            result.push(TriePrefix { id: *id, length: 0 });
-        }
-        for (off, c) in text.char_indices() {
-            if let Some(next_node) = node.children.get(&c) {
-                node = next_node;
-                for id in &node.ids {
+        let mut text_iter = text.chars();
+        let mut node_ids_iter = node.ids.iter();
+        let mut length = 0usize;
+        std::iter::from_fn(move || loop {
+            if let Some(id) = node_ids_iter.next() {
+                return Some(TriePrefix { id: *id, length });
+            }
+            if let Some(c) = text_iter.next() {
+                if let Some(next_node) = node.children.get(&c) {
+                    node = next_node;
+                    node_ids_iter = node.ids.iter();
                     // Remember that UTF-8 characters span a variable number of bytes
-                    // "off + c.len_utf8()" points to one past the end of the current character
-                    result.push(TriePrefix { id: *id, length: off + c.len_utf8() });
+                    length += c.len_utf8();
+                } else {
+                    return None;
                 }
             } else {
-                break;
+                return None;
             }
-        }
-        result
+        })
     }
 }
 

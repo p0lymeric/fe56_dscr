@@ -117,7 +117,7 @@ fn get_token_candidates(dictionary: &dyn dictionary::Dictionary, input: &str) ->
     let input_casefold = dictionary.casefold(input);
     let mut special_matcher = SpecialTokenDfa::Inactive;
     for (pos, c) in input.char_indices() {
-        token_candidates.append(&mut dictionary.tokenize_at(input, &input_casefold, pos));
+        dictionary.tokenize_at(input, &input_casefold, pos, &mut token_candidates);
         special_matcher.advance(pos, c, input, &mut token_candidates);
     }
     special_matcher.terminate(input, &mut token_candidates);
@@ -178,7 +178,7 @@ impl Symbolizer for MwisSymbolizer {
     fn symbolize(&self, dictionary: &dyn dictionary::Dictionary, input: &str) -> Symbolized {
         // List all possible tokenizations of the input string, then sort by earliest end for MWIS
         let mut token_candidates = get_token_candidates(dictionary, input);
-        token_candidates.sort_by_key(|x| (x.span.end, x.span.start));
+        token_candidates.sort_unstable_by_key(|x| (x.span.end, x.span.start));
 
         // TODO pre-filter to pick 1 choice per group of perfectly overlapping spans (prioritize highest IDs)
         // FIXME delete tokens that overlap with a bare ID token

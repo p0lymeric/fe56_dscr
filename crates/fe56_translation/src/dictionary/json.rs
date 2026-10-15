@@ -126,8 +126,8 @@ impl Dictionary for JsonDictionary {
         self.shadow.casefold(text)
     }
 
-    fn tokenize_at(&self, text: &str, text_casefold: &case::Casefolded, start: usize) -> Vec<TokenizeResult> {
-        self.shadow.tokenize_at(text, text_casefold, start)
+    fn tokenize_at(&self, text: &str, text_casefold: &case::Casefolded, start: usize, out: &mut Vec<TokenizeResult>) {
+        self.shadow.tokenize_at(text, text_casefold, start, out)
     }
 
 }
@@ -213,20 +213,26 @@ mod tests {
         assert_eq!(dict.lookup("UNTOWARD"), Some(-3));
     }
 
+    fn assert_eq_tokenize_at(dictionary: &dyn Dictionary, text: &str, text_casefold: &case::Casefolded, start: usize, lhs: &[TokenizeResult]) {
+        let mut out = Vec::new();
+        dictionary.tokenize_at(text, text_casefold, start, &mut out);
+        assert_eq!(out, lhs);
+    }
+
     #[test]
     fn test_tokenize_at_simple() {
         let dict = make_dict_untoward();
 
         let untoward_case_folded = dict.casefold("untoward");
 
-        assert_eq!(dict.tokenize_at("UNTOWARD", &untoward_case_folded, 0), &[TokenizeResult { kind: TokenizeResultKind::WordExact, id: -1, span: (0..4).into() }, TokenizeResult { kind: TokenizeResultKind::WordExact, id: -3, span: (0..8).into() }]);
-        assert_eq!(dict.tokenize_at("UNTOWARD", &untoward_case_folded, 1), &[] as &[TokenizeResult]);
-        assert_eq!(dict.tokenize_at("UNTOWARD", &untoward_case_folded, 4), &[TokenizeResult { kind: TokenizeResultKind::WordExact, id: -2, span: (4..8).into() }]);
-        assert_eq!(dict.tokenize_at("UNTOWARD", &untoward_case_folded, 5), &[] as &[TokenizeResult]);
+        assert_eq_tokenize_at(&dict, "UNTOWARD", &untoward_case_folded, 0, &[TokenizeResult { kind: TokenizeResultKind::WordExact, id: -1, span: (0..4).into() }, TokenizeResult { kind: TokenizeResultKind::WordExact, id: -3, span: (0..8).into() }]);
+        assert_eq_tokenize_at(&dict, "UNTOWARD", &untoward_case_folded, 1, &[] as &[TokenizeResult]);
+        assert_eq_tokenize_at(&dict, "UNTOWARD", &untoward_case_folded, 4, &[TokenizeResult { kind: TokenizeResultKind::WordExact, id: -2, span: (4..8).into() }]);
+        assert_eq_tokenize_at(&dict, "UNTOWARD", &untoward_case_folded, 5, &[] as &[TokenizeResult]);
 
         // panic!("{:?}", dict.tokenize_at("untoWARD", Some(&untoward_case_folded), 0));
-        assert_eq!(dict.tokenize_at("untoWARD", &untoward_case_folded, 0), &[TokenizeResult { kind: TokenizeResultKind::WordInexact, id: -1, span: (0..4).into() }, TokenizeResult { kind: TokenizeResultKind::WordInexact, id: -3, span: (0..8).into() }]);
-        assert_eq!(dict.tokenize_at("untoWARD", &untoward_case_folded, 4), &[TokenizeResult { kind: TokenizeResultKind::WordExact, id: -2, span: (4..8).into() }]);
+        assert_eq_tokenize_at(&dict, "untoWARD", &untoward_case_folded, 0, &[TokenizeResult { kind: TokenizeResultKind::WordInexact, id: -1, span: (0..4).into() }, TokenizeResult { kind: TokenizeResultKind::WordInexact, id: -3, span: (0..8).into() }]);
+        assert_eq_tokenize_at(&dict, "untoWARD", &untoward_case_folded, 4, &[TokenizeResult { kind: TokenizeResultKind::WordExact, id: -2, span: (4..8).into() }]);
     }
 
     #[test]
@@ -240,7 +246,7 @@ mod tests {
         let sus_case_folded = dict.casefold(sus);
 
         // panic!("{:?}", dict.tokenize_at(sus, &sus_case_folded, 0));
-        assert_eq!(dict.tokenize_at(sus, &sus_case_folded, 0), &[TokenizeResult { kind: TokenizeResultKind::WordInexact, id: -3, span: (0..3).into() }, TokenizeResult { kind: TokenizeResultKind::WordExact, id: -2, span: (0..5).into() }, TokenizeResult { kind: TokenizeResultKind::WordInexact, id: -1, span: (0..5).into() }]);
+        assert_eq_tokenize_at(&dict, sus, &sus_case_folded, 0, &[TokenizeResult { kind: TokenizeResultKind::WordInexact, id: -3, span: (0..3).into() }, TokenizeResult { kind: TokenizeResultKind::WordExact, id: -2, span: (0..5).into() }, TokenizeResult { kind: TokenizeResultKind::WordInexact, id: -1, span: (0..5).into() }]);
         // TODO more predictions
     }
 }

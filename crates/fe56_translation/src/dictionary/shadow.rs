@@ -41,6 +41,7 @@ impl Dictionary for ShadowDictionary {
     }
 
     fn lookup(&self, word: &str) -> Option<SymbolT> {
+        // TODO need to assert that the dictionary does not contain identical entries
         self.trie_exact.search(word).first().copied()
     }
 
@@ -60,23 +61,18 @@ impl Dictionary for ShadowDictionary {
         case::Casefolded::new(text)
     }
 
-    fn tokenize_at(&self, text: &str, text_casefold: &case::Casefolded, start: usize) -> Vec<TokenizeResult> {
+    fn tokenize_at(&self, text: &str, text_casefold: &case::Casefolded, start: usize, out: &mut Vec<TokenizeResult>) {
         // text is used for verifying exact matches
-        if let Some(start_casefold) = text_casefold.to_casefold(start) {
-            self.trie_casefold.prefixes(&text_casefold.text_norm[start_casefold..]).iter().filter_map(|&prefix| {
-                if let Some(end_orig) = text_casefold.to_orig(start_casefold + prefix.length) {
-                    let exact_case = self.trie_exact.present(prefix.id, &text[start..end_orig]);
-                    Some(TokenizeResult {
-                        kind: if exact_case { TokenizeResultKind::WordExact } else { TokenizeResultKind::WordInexact },
-                        id: prefix.id,
-                        span: (start..end_orig).into()
-                    })
-                } else { None }
-
-            }).collect()
-        } else {
-            Vec::new()
-        }
+        let start_casefold = text_casefold.to_casefold(start);
+        out.extend(self.trie_casefold.prefixes(&text_casefold.text_norm[start_casefold..]).map(move |prefix| {
+            let end_orig = text_casefold.to_orig(start_casefold + prefix.length);
+            let exact_case = self.lookup(&text[start..end_orig]) == Some(prefix.id);
+            TokenizeResult {
+                kind: if exact_case { TokenizeResultKind::WordExact } else { TokenizeResultKind::WordInexact },
+                id: prefix.id,
+                span: (start..end_orig).into()
+            }
+        }))
     }
 }
 
