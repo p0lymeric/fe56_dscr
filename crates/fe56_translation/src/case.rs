@@ -4,8 +4,8 @@
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Casefolded {
     pub text_norm: String,
-    pub offsets: Vec<(usize, usize)>,
-    pub direct_mapping: bool,
+    pub offset_orig_to_casefold: Vec<usize>,
+    pub offset_casefold_to_orig: Vec<usize>,
 }
 
 impl Casefolded {
@@ -14,40 +14,29 @@ impl Casefolded {
         // using Unicode's Case_Folding (C + F) table (TR44)
         let mut text_norm = String::with_capacity(s.len());
         let mut offsets = Vec::with_capacity(s.len() + 1);
-        let mut direct_mapping = true;
         for (orig, x) in s.char_indices() {
             offsets.push((orig, text_norm.len()));
-            if orig != text_norm.len() {
-                direct_mapping = false;
-            }
             match fe56_ucd_sys::CASEFOLD_FULL.binary_search_by_key(&x, |(k, _v)| *k) {
                 Ok(i) => text_norm.push_str(fe56_ucd_sys::CASEFOLD_FULL[i].1),
                 _ => text_norm.push(x)
             }
         }
         offsets.push((s.len(), text_norm.len()));
-        if s.len() != text_norm.len() {
-            direct_mapping = false;
+        let mut offset_orig_to_casefold = vec![usize::MAX; s.len() + 1];
+        let mut offset_casefold_to_orig = vec![usize::MAX; text_norm.len() + 1];
+        for (orig, casefold) in offsets {
+            offset_orig_to_casefold[orig] = casefold;
+            offset_casefold_to_orig[casefold] = orig;
         }
-        Casefolded { text_norm, offsets, direct_mapping }
+        Casefolded { text_norm, offset_orig_to_casefold, offset_casefold_to_orig }
     }
 
-    pub fn to_orig(&self, offset: usize) -> usize {
-        if self.direct_mapping {
-            offset
-        } else {
-            // TODO performance optimization: Use 2 index-to-index mapping arrays in Casefolded for the non-1-1 case.
-            self.offsets.binary_search_by_key(&offset, |(_orig, casefold)| *casefold).ok().map(|i| self.offsets[i].0).unwrap_or(offset)
-        }
+    pub fn to_orig(&self, offset: usize) -> Option<usize> {
+        if self.offset_casefold_to_orig[offset] == usize::MAX { None } else { Some(self.offset_casefold_to_orig[offset]) }
     }
 
     pub fn to_casefold(&self, offset: usize) -> usize {
-        if self.direct_mapping {
-            offset
-        } else {
-            // TODO performance optimization: Use 2 index-to-index mapping arrays in Casefolded for the non-1-1 case.
-            self.offsets.binary_search_by_key(&offset, |(orig, _casefold)| *orig).ok().map(|i| self.offsets[i].1).unwrap_or(offset)
-        }
+        self.offset_orig_to_casefold[offset]
     }
 }
 

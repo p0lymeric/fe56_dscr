@@ -49,7 +49,7 @@ impl<T: Ord + Copy> RTrie<T> {
         for c in word.chars().rev() {
             node = node.children.entry(c).or_default();
         }
-        match node.ids.binary_search(&id) {
+        match node.ids.binary_search_by(|x| id.cmp(x)) {
             Err(pos) => { node.ids.insert(pos, id) },
             _ => { return false; }
         };
@@ -101,7 +101,7 @@ impl<T: Ord + Copy> RTrie<T> {
         }
 
         let node = unsafe { &mut *rnode };
-        match node.ids.binary_search(&id) {
+        match node.ids.binary_search_by(|x| id.cmp(x)) {
             Ok(vec_pos_to_delete) => {
                 // If the entry holding the ID to be removed contains other IDs or has children, just remove the ID
                 // Otherwise prune the trie at the common ancestor identified earlier

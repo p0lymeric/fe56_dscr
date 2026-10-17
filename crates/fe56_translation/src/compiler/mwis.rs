@@ -117,10 +117,27 @@ fn get_token_candidates(dictionary: &dyn dictionary::Dictionary, input: &str) ->
     let input_casefold = dictionary.casefold(input);
     let mut special_matcher = SpecialTokenDfa::Inactive;
     for (pos, c) in input.char_indices() {
+        let out_start = token_candidates.len();
         dictionary.tokenize_at(input, &input_casefold, pos + c.len_utf8(), &mut token_candidates);
+        let out_end: usize = token_candidates.len();
+        if out_start != out_end {
+            // Assure that RTrie returned words in length order
+            debug_assert!(token_candidates[out_start..out_end].windows(2).all(|x| x[0].span.start >= x[1].span.start));
+
+            // Reverse in place, which encourages the optimizer to place letters on earlier tokens in ambiguous cases
+            token_candidates[out_start..out_end].reverse();
+
+            // Assure that RTrie returns id in an order that prefers higher ids in ambiguous cases
+            #[cfg(debug_assertions)]
+            for group in token_candidates[out_start..out_end].chunk_by_mut(|a, b| a.span.start == b.span.start) {
+                debug_assert!(group.windows(2).all(|x| x[0].id < x[1].id));
+            }
+        }
+        // Append special matches to the end. They are weighted with higher priority than words, so we don't need to insort
         special_matcher.advance(pos, c, input, &mut token_candidates);
     }
     special_matcher.terminate(input, &mut token_candidates);
+    debug_assert!(token_candidates.windows(2).all(|x| x[0].span.end <= x[1].span.end));
     token_candidates
 }
 

@@ -64,13 +64,18 @@ impl Dictionary for ShadowDictionary {
     fn tokenize_at(&self, text: &str, text_casefold: &case::Casefolded, end: usize, out: &mut Vec<TokenizeResult>) {
         // text is used for verifying exact matches
         let end_casefold = text_casefold.to_casefold(end);
-        out.extend(self.trie_casefold.suffixes(&text_casefold.text_norm[..end_casefold]).map(move |result| {
-            let start_orig = text_casefold.to_orig(end_casefold - result.length);
-            let exact_case = self.lookup(&text[start_orig..end]) == Some(result.id);
-            TokenizeResult {
-                kind: if exact_case { TokenizeResultKind::WordExact } else { TokenizeResultKind::WordInexact },
-                id: result.id,
-                span: (start_orig..end).into()
+        out.extend(self.trie_casefold.suffixes(&text_casefold.text_norm[..end_casefold]).filter_map(move |result| {
+            // edge case: user passes "ßa", it casefolds to "ssa", trie returns a match for "sa",
+            // which cannot map into to the 2-character casefolded sequence
+            if let Some(start_orig) = text_casefold.to_orig(end_casefold - result.length) {
+                let exact_case = self.lookup(&text[start_orig..end]) == Some(result.id);
+                Some(TokenizeResult {
+                    kind: if exact_case { TokenizeResultKind::WordExact } else { TokenizeResultKind::WordInexact },
+                    id: result.id,
+                    span: (start_orig..end).into()
+                })
+            } else {
+                None
             }
         }))
     }
