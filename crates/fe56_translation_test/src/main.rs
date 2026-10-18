@@ -29,7 +29,7 @@ impl MyEguiApp {
         let mut result = Self {
             dictionary: JsonDictionary::new(Some(include_str!("../../fe56_translation/tests/artifacts/DICTIONARY-1.save"))).unwrap(),
             my_string: String::new(),
-            my_tokenization: Symbolized { tokens: Vec::new(), errors: Vec::new() },
+            my_tokenization: Symbolized { tokens: Vec::new(), errors: Vec::new(), traces: Vec::new() },
         };
         let esdb_str = include_str!("../../fe56_translation/tests/artifacts/third_party/esdb.txt");
         let mut in_preamble = true;
@@ -49,6 +49,8 @@ impl MyEguiApp {
             }
         }
         result.dictionary.add(-10000000, Definition { word: "fußy".to_string(), desc: "desc".to_string(), format: Formatting::DEFAULT });
+        result.dictionary.add(-10000001, Definition { word: "|-100|-200".to_string(), desc: "desc".to_string(), format: Formatting::DEFAULT });
+        result.dictionary.add(-10000002, Definition { word: "|-300".to_string(), desc: "desc".to_string(), format: Formatting::DEFAULT });
         result
     }
 }
@@ -71,7 +73,7 @@ impl eframe::App for MyEguiApp {
             let mut underline = vec![' '; self.my_string.len()];
             let mut parity = 0;
             for tk in &self.my_tokenization.tokens {
-                for off in tk.span {
+                for off in tk.span.start..tk.span.end {
                     // FIXME very much incorrect for multibyte characters
                     underline[off] = if tk.id >= 0 {
                         '#'
@@ -86,7 +88,7 @@ impl eframe::App for MyEguiApp {
             for err in &self.my_tokenization.errors {
                 match &err.kind {
                     EntryNotFound => {
-                        for i in err.span {
+                        for i in err.span.start..err.span.end {
                             // FIXME very much incorrect for multibyte characters
                             underline[i] = '!';
                         }
@@ -98,7 +100,7 @@ impl eframe::App for MyEguiApp {
                         //         underline[off + x.span.start] = '?';
                         //     }
                         // }
-                        for i in err.span {
+                        for i in err.span.start..err.span.end {
                             underline[i] = '?';
                         }
                     },

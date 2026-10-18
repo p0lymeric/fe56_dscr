@@ -17,19 +17,13 @@ enum SpecialTokenDfa {
 }
 
 impl SpecialTokenDfa {
-    fn advance(&mut self, pos: usize, c: char, input: &str, token_candidates: &mut Vec<dictionary::TokenizeResult>) {
+    fn advance(&mut self, input: &str, token_candidates: &mut Vec<dictionary::TokenizeResult>, pos: usize, c: char) {
         match self {
             SpecialTokenDfa::Inactive => {
                 match c {
                     '|' => *self = SpecialTokenDfa::Bar { start: pos },
                     '0'..='9' => {
-                        if let Some(id_u32) = c.to_digit(10) && let Ok(id) = id_u32.try_into() {
-                            token_candidates.push(dictionary::TokenizeResult {
-                                kind: dictionary::TokenizeResultKind::Numeral,
-                                id,
-                                span: (pos..pos + 1).into()
-                            });
-                        }
+                        Self::push_numeral(token_candidates, pos, c);
                     },
                     _ => {}
                 }
@@ -53,35 +47,11 @@ impl SpecialTokenDfa {
                 match c {
                     '0'..='9' => {},
                     '|' => {
-                        if let Ok(id) = input[*start + 1..pos].parse() {
-                            token_candidates.push(dictionary::TokenizeResult {
-                                kind: dictionary::TokenizeResultKind::BareId,
-                                id,
-                                span: (*start..pos).into()
-                            });
-                        } else {
-                            token_candidates.push(dictionary::TokenizeResult {
-                                kind: dictionary::TokenizeResultKind::BareIdBig,
-                                id: 0,
-                                span: (*start..pos).into()
-                            });
-                        }
+                        Self::push_bare_id(input, token_candidates, *start, pos);
                         *self = SpecialTokenDfa::Bar { start: pos };
                     },
                     _ => {
-                        if let Ok(id) = input[*start + 1..pos].parse() {
-                            token_candidates.push(dictionary::TokenizeResult {
-                                kind: dictionary::TokenizeResultKind::BareId,
-                                id,
-                                span: (*start..pos).into()
-                            });
-                        } else {
-                            token_candidates.push(dictionary::TokenizeResult {
-                                kind: dictionary::TokenizeResultKind::BareIdBig,
-                                id: 0,
-                                span: (*start..pos).into()
-                            });
-                        }
+                        Self::push_bare_id(input, token_candidates, *start, pos);
                         *self = SpecialTokenDfa::Inactive;
                     }
                 }
@@ -92,23 +62,37 @@ impl SpecialTokenDfa {
     fn terminate(&mut self, input: &str, token_candidates: &mut Vec<dictionary::TokenizeResult>) {
         match self {
             SpecialTokenDfa::BarDigit { start } => {
-                if let Ok(id) = input[*start + 1..input.len()].parse() {
-                    token_candidates.push(dictionary::TokenizeResult {
-                        kind: dictionary::TokenizeResultKind::BareId,
-                        id,
-                        span: (*start..input.len()).into()
-                    });
-                } else {
-                    token_candidates.push(dictionary::TokenizeResult {
-                        kind: dictionary::TokenizeResultKind::BareIdBig,
-                        id: 0,
-                        span: (*start..input.len()).into()
-                    });
-                }
+                Self::push_bare_id(input, token_candidates, *start, input.len());
             },
             _ => {},
         }
         *self = SpecialTokenDfa::Inactive;
+    }
+
+    fn push_bare_id(input: &str, token_candidates: &mut Vec<dictionary::TokenizeResult>, start: usize, pos: usize) {
+        if let Ok(id) = input[start + 1..pos].parse() {
+            token_candidates.push(dictionary::TokenizeResult {
+                kind: dictionary::TokenizeResultKind::BareId,
+                id,
+                span: (start..pos).into()
+            });
+        } else {
+            token_candidates.push(dictionary::TokenizeResult {
+                kind: dictionary::TokenizeResultKind::BareIdBig,
+                id: 0,
+                span: (start..pos).into()
+            });
+        }
+    }
+
+    fn push_numeral(token_candidates: &mut Vec<dictionary::TokenizeResult>, pos: usize, c: char) {
+        if let Some(id_u32) = c.to_digit(10) && let Ok(id) = id_u32.try_into() {
+            token_candidates.push(dictionary::TokenizeResult {
+                kind: dictionary::TokenizeResultKind::Numeral,
+                id,
+                span: (pos..pos + 1).into()
+            });
+        }
     }
 }
 
@@ -117,6 +101,12 @@ fn get_token_candidates(dictionary: &dyn dictionary::Dictionary, input: &str) ->
     let input_casefold = dictionary.casefold(input);
     let mut special_matcher = SpecialTokenDfa::Inactive;
     for (pos, c) in input.char_indices() {
+        // Prepend special matches. They are weighted with different priority than words, so we don't need to insort.
+        // ...but we do have a nasty ordering dependency with the end index.
+        // Bare IDs end at pos (end of the previous character).
+        // Digits end at pos + c.len_utf8().
+        special_matcher.advance(input, &mut token_candidates, pos, c);
+
         let out_start = token_candidates.len();
         dictionary.tokenize_at(input, &input_casefold, pos + c.len_utf8(), &mut token_candidates);
         let out_end: usize = token_candidates.len();
@@ -133,8 +123,6 @@ fn get_token_candidates(dictionary: &dyn dictionary::Dictionary, input: &str) ->
                 debug_assert!(group.windows(2).all(|x| x[0].id < x[1].id));
             }
         }
-        // Append special matches to the end. They are weighted with higher priority than words, so we don't need to insort
-        special_matcher.advance(pos, c, input, &mut token_candidates);
     }
     special_matcher.terminate(input, &mut token_candidates);
     debug_assert!(token_candidates.windows(2).all(|x| x[0].span.end <= x[1].span.end));
@@ -144,11 +132,12 @@ fn get_token_candidates(dictionary: &dyn dictionary::Dictionary, input: &str) ->
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 struct MwisWeight {
     non_whitespace_bytes: u32,
-    tokens_penalty: u32,
     bare_ids: u32,
+    tokens_penalty: u32,
     words: u32,
     exact_words: u32,
-    digits: u32,
+    // the lowest priority token type does not need to be counted
+    // digits: u32,
 }
 
 impl PartialOrd for MwisWeight {
@@ -161,11 +150,11 @@ impl Ord for MwisWeight {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         // Top-down lexicographic ordering, but one of the field comparisons is reversed
         self.non_whitespace_bytes.cmp(&other.non_whitespace_bytes)
-            .then(other.tokens_penalty.cmp(&self.tokens_penalty)) // Inverted, lower is more optimal
             .then(self.bare_ids.cmp(&other.bare_ids))
+            .then(other.tokens_penalty.cmp(&self.tokens_penalty)) // Inverted, lower is more optimal
             .then(self.words.cmp(&other.words))
             .then(self.exact_words.cmp(&other.exact_words))
-            .then(self.digits.cmp(&other.digits))
+            // .then(self.digits.cmp(&other.digits))
     }
 }
 
@@ -179,11 +168,11 @@ impl Add for MwisWeight {
         // Right?
         MwisWeight {
             non_whitespace_bytes: self.non_whitespace_bytes + rhs.non_whitespace_bytes,
-            tokens_penalty: self.tokens_penalty + rhs.tokens_penalty,
             bare_ids: self.bare_ids + rhs.bare_ids,
+            tokens_penalty: self.tokens_penalty + rhs.tokens_penalty,
             words: self.words + rhs.words,
             exact_words: self.exact_words + rhs.exact_words,
-            digits: self.digits + rhs.digits,
+            // digits: self.digits + rhs.digits,
         }
     }
 }
@@ -205,22 +194,22 @@ impl Symbolizer for MwisSymbolizer {
         // that optimizes the sum of weights described by the tuple:
         //     (
         //         W1. Number of covered non-whitespace bytes,
-        //         W2. Constant 1,
-        //         W3. 1 if bare ID,
+        //         W2. 1 if bare ID,
+        //         W3. Constant 1,
         //         W4. 1 if word,
         //         W5: 1 if word AND exact case match,
-        //         W6. 1 if numerical digits
         //     )
         // Individual weight components in the tuple add component-wise along the schedule.
 
         // OPTIMAL SOLUTIONS
         // Definition: A schedule with "optimal" total score has a sum of weights that, in priority order:
         //     W1. covers as many non-whitespace bytes in the text string as possible (higher is better)
-        //     W2. with the fewest covering tokens (lower is better)
-        //     W3. prioritizing bare IDs (higher is better)
-        //     W4. over case-exact or case-inexact words (higher is better)
+        //     W2. maximizing number of bare ID tokens (higher is better)
+        //     W3. then minimizing numer of covering tokens (lower is better)
+        //     W4. then maximizing case-exact or case-inexact words (higher is better)
         //     W5. over case-inexact* words (higher is better, *we measure case-exact words to deprioritize case-INexact words)
-        //     W6. over numbers (higher is better)
+        //     W*. over numbers (higher is better)
+        // W* is implied by case fallthrough.
 
         // VALID SOLUTIONS
         // Definition: Iff a resultant schedule's W1 is equal to the total number of non-whitespace bytes in the text string, it is a "valid solution".
@@ -239,11 +228,13 @@ impl Symbolizer for MwisSymbolizer {
         //     - Words match sequences of text via exact or casefolded comparison.
         //     - Tokens that match a word exactly are prioritized higher than casefolded matches.
         //     - Words can contain digits and whitespace.
-        // - Whitespace is either literally matched or used to explicitly set token boundaries. In priority order:
+        //     - If a dictionary contains two different words that casefold identically, the parser will only unambiguously accept case-exact variants.
+        //     - If a dictionary contains two identical words, the parser will treat any case variant of the word as ambiguous.
+        // - Whitespace is either literally matched, used to explicitly set token boundaries, or ignored. In priority order:
         //     1. Any words that include whitespace will consume whitespace in order to produce a match.
         //     2. Any leftover whitespace can serve to force a choice or break ambiguity, when the parser cannot find a good position to infer token boundaries.
         //         - Consider an example dictionary with words ["PARTICLE", "SIT", "IT", "FIRETRUCK", "FIRE", "TRUCK", "IS", "ITIS"]
-        //         - The parser's definition of "good position to infer token boundaries" are "ambiguity" are defined by the optimization goal, largely influenced by W2.
+        //         - The parser's definition of "good position to infer token boundaries" are "ambiguity" are defined by the optimization goal, largely influenced by W3.
         //          e.g. "PARTICLESIT" is ambiguous with "PARTICLES IT" or "PARTICLE SIT". Only the two whitespace-qualified forms are accepted.
         //         - It is expected that a user will insert whitespace to solve parse ambiguity, naturally or by using feedback from ambiguity traces.
         //         - When a compound word and its constituents are both present in a dictionary, the compound is preferred when no whitespace is present.
@@ -251,62 +242,65 @@ impl Symbolizer for MwisSymbolizer {
         //           e.g. For the same reason, "ITIS" unambiguously parses as "ITIS", instead of "IT IS".
         //         - It is expected that a user will type with redundant whitespace and curate their dictionary to defend against unwanted compound merging.
 
-        // POSSIBLE IMPLEMENTATION DEFECTS
-        // - ID priority between two case-folded word matches is undefined.
-        //   Since we maintain sorted ID lists in our trie, actual behaviour is likely deterministic.
-        // - Additional consideration is needed to ensure that bare IDs are not shadowable by a word.
-        //   In cases where a word contains a bar-integer sequence, that word may win if it can replace what would've been multiple tokens.
+        let mut weights: Vec<MwisWeight> = Vec::with_capacity(token_candidates.len() + 1);
+        let mut precedes: Vec<usize> = Vec::with_capacity(token_candidates.len() + 1);
+        let mut optimal: Vec<MwisWeight> = Vec::with_capacity(token_candidates.len() + 1);
 
-        let mut weights = vec![MwisWeight::default(); token_candidates.len() + 1];
-        let mut precedes = vec![0usize; token_candidates.len() + 1];
-        let mut optimal = vec![MwisWeight::default(); token_candidates.len() + 1];
-
-        // Note: weights[0]/precedes[0]/optimal[0] are fixed at 0 and can be accessed during search.
+        // weights[0]/precedes[0]/optimal[0] are fixed at 0 and can be accessed during search.
+        weights.push(MwisWeight::default());
+        precedes.push(0);
+        optimal.push(MwisWeight::default());
 
         for (i, tk) in token_candidates.iter().enumerate() {
-            let non_whitespace_bytes = input[tk.span].chars().fold(0usize, |c, x| if !x.is_whitespace() { c + x.len_utf8() } else { c } );
-            if let Ok(non_whitespace_bytes) = u32::try_from(non_whitespace_bytes) {
+            let non_whitespace_bytes = input[tk.span].chars().fold(0usize, |acc, c| if !c.is_whitespace() { acc + c.len_utf8() } else { acc } );
+            weights.push(if let Ok(non_whitespace_bytes) = u32::try_from(non_whitespace_bytes) {
                 match tk.kind {
                     dictionary::TokenizeResultKind::WordInexact | dictionary::TokenizeResultKind::WordExact => {
-                        weights[i + 1] = MwisWeight {
-                            non_whitespace_bytes: non_whitespace_bytes,
-                            tokens_penalty: 1, // positive in the weight structure but penalized during Ord comparison
+                        MwisWeight {
+                            non_whitespace_bytes,
                             bare_ids: 0,
+                            tokens_penalty: 1,
                             words: 1,
                             exact_words: if tk.kind == dictionary::TokenizeResultKind::WordExact { 1 } else { 0 },
-                            digits: 0
-                        };
+                            // digits: 0
+                        }
                     },
                     dictionary::TokenizeResultKind::Numeral => {
-                        weights[i + 1] = MwisWeight {
-                            non_whitespace_bytes: non_whitespace_bytes,
-                            tokens_penalty: 1, // positive in the weight structure but penalized during Ord comparison
+                        MwisWeight {
+                            non_whitespace_bytes,
                             bare_ids: 0,
+                            tokens_penalty: 1,
                             words: 0,
                             exact_words: 0,
-                            digits: 1
-                        };
+                            // digits: 1
+                        }
                     },
                     dictionary::TokenizeResultKind::BareId | dictionary::TokenizeResultKind::BareIdBig => {
-                        weights[i + 1] = MwisWeight {
-                            non_whitespace_bytes: non_whitespace_bytes,
-                            tokens_penalty: 1, // positive in the weight structure but penalized during Ord comparison
+                        MwisWeight {
+                            non_whitespace_bytes,
                             bare_ids: 1,
+                            tokens_penalty: 1,
                             words: 0,
                             exact_words: 0,
-                            digits: 0
-                        };
+                            // digits: 0
+                        }
                     },
                 }
             } else {
-                // TODO push error (pathologically sized token)
-            }
+                // FIXME should flag an error here instead of deprioritizing this token
+                MwisWeight {
+                    non_whitespace_bytes: 0,
+                    bare_ids: 0,
+                    tokens_penalty: 0,
+                    words: 0,
+                    exact_words: 0,
+                    // digits: 0
+                }
+            });
 
-            precedes[i + 1] = token_candidates.partition_point(|x| x.span.end <= tk.span.start);
-        }
+            precedes.push(token_candidates[..i].partition_point(|x| x.span.end <= tk.span.start));
 
-        for i in 1..token_candidates.len() + 1 {
-            optimal[i] = (weights[i] + optimal[precedes[i]]).max(optimal[i - 1])
+            optimal.push((weights[i + 1] + optimal[precedes[i + 1]]).max(optimal[i]));
         }
 
         let mut opt_schedule: Vec<usize> = Vec::new();
@@ -326,52 +320,52 @@ impl Symbolizer for MwisSymbolizer {
             }
         }
 
-        let s0 = opt_schedule.iter().rev().map(|j| {
-            let tk = token_candidates[*j - 1];
-            SymbolizerToken {
-                id: tk.id,
-                span: tk.span,
-            }
-        }).collect::<Vec<SymbolizerToken>>();
-
+        let mut tokens: Vec<SymbolizerToken> = Vec::with_capacity(opt_schedule.len());
         let mut errors: Vec<SymbolizerError> = Vec::new();
+        let mut traces: Vec<SymbolizerTrace> = Vec::new();
 
-        // Collect spans of untokenized non-whitespace
-        fn report_uncovered_non_whitespace(errors: &mut Vec<SymbolizerError>, input: &str, end_prev: usize, start: usize) {
+        // Collect spans within untokenized regions
+        fn trace_uncovered_region(errors: &mut Vec<SymbolizerError>, traces: &mut Vec<SymbolizerTrace>, input: &str, left: usize, right: usize) {
+            let mut last_start = left;
             let mut maybe_error_start: Option<usize> = None;
-            for (off, c) in input[end_prev..start].char_indices() {
+            for (off, c) in input[left..right].char_indices() {
                 if !c.is_whitespace() {
                     if maybe_error_start == None {
-                        maybe_error_start = Some(end_prev + off);
+                        if last_start != left + off {
+                            let span = SymbolizerSpan::from(last_start..left + off);
+                            traces.push(SymbolizerTrace { span, kind: SymbolizerTraceKind::Whitespace });
+                            last_start = left + off;
+                        }
+                        maybe_error_start = Some(left + off);
                     }
                 } else {
                     if let Some(error_start) = maybe_error_start {
-                        errors.push(SymbolizerError { kind: SymbolizerErrorKind::EntryNotFound, span: (error_start..end_prev + off).into() });
+                        let span = SymbolizerSpan::from(error_start..left + off);
+                        errors.push(SymbolizerError { kind: SymbolizerErrorKind::EntryNotFound, span });
+                        traces.push(SymbolizerTrace { span, kind: SymbolizerTraceKind::Unconsumed });
                         maybe_error_start = None;
+                        last_start = left + off;
                     }
                 }
             }
             if let Some(error_start) = maybe_error_start {
-                errors.push(SymbolizerError { kind: SymbolizerErrorKind::EntryNotFound, span: (error_start..start).into() });
+                let span = SymbolizerSpan::from(error_start..right);
+                errors.push(SymbolizerError { kind: SymbolizerErrorKind::EntryNotFound, span });
+                traces.push(SymbolizerTrace { span, kind: SymbolizerTraceKind::Unconsumed });
+            } else if last_start != right {
+                let span = SymbolizerSpan::from(last_start..right);
+                traces.push(SymbolizerTrace { span, kind: SymbolizerTraceKind::Whitespace });
             }
         }
-        let mut end_prev = 0;
-        for tk in s0.iter() {
-            report_uncovered_non_whitespace(&mut errors, input, end_prev, tk.span.start);
-            end_prev = tk.span.end;
-        }
-        if end_prev < input.len() {
-            report_uncovered_non_whitespace(&mut errors, input, end_prev, input.len());
-        }
 
-        // Collect ambiguous spans
-        for j in ambiguous_points {
+        // Trace ambiguous spans
+        fn trace_ambiguous_endpoint(errors: &mut Vec<SymbolizerError>, traces: &mut Vec<SymbolizerTrace>, weights: &Vec<MwisWeight>, precedes: &Vec<usize>, optimal: &Vec<MwisWeight>, token_candidates: &Vec<dictionary::TokenizeResult>, j: usize) {
             let mut left_divergence: Vec<SymbolizerToken> = Vec::new();
             let mut right_divergence: Vec<SymbolizerToken> = Vec::new();
 
             let mut j_left = precedes[j];
             let tk_left = token_candidates[j - 1];
-            left_divergence.push(SymbolizerToken { id: tk_left.id, span: tk_left.span });
+            left_divergence.push(SymbolizerToken { id: tk_left.id, span: tk_left.span.into() });
 
             let mut j_right = j - 1;
 
@@ -380,7 +374,7 @@ impl Symbolizer for MwisSymbolizer {
                     let compare = (weights[j_left] + optimal[precedes[j_left]]).cmp(&optimal[j_left - 1]);
                     if compare.is_ge() {
                         let tk = token_candidates[j_left - 1];
-                        left_divergence.push(SymbolizerToken { id: tk.id, span: tk.span });
+                        left_divergence.push(SymbolizerToken { id: tk.id, span: tk.span.into() });
                         j_left = precedes[j_left];
                     } else {
                         j_left = j_left - 1;
@@ -389,7 +383,7 @@ impl Symbolizer for MwisSymbolizer {
                     let compare = (weights[j_right] + optimal[precedes[j_right]]).cmp(&optimal[j_right - 1]);
                     if compare.is_ge() {
                         let tk = token_candidates[j_right - 1];
-                        right_divergence.push(SymbolizerToken { id: tk.id, span: tk.span });
+                        right_divergence.push(SymbolizerToken { id: tk.id, span: tk.span.into() });
                         j_right = precedes[j_right];
                     } else {
                         j_right = j_right - 1;
@@ -408,12 +402,69 @@ impl Symbolizer for MwisSymbolizer {
                 left_divergence.first().unwrap().span.start
             };
 
+            // Delete what was pushed before into traces
+            // FIXME hacky, could we end up deleting whitespace and cause a frameshift?
+            // May need to iterate through opt_schedule in actual order so we can skip the parent iterator
+            // traces.truncate(traces.len() - left_divergence.len());
+            // FIXME NOT IMPLEMENTED
+
+            if left_divergence.len() == right_divergence.len() {
+                for (left, right) in left_divergence.iter().zip(&right_divergence) {
+                    traces.push(SymbolizerTrace { span: left.span, kind: SymbolizerTraceKind::TokenAmbiguousAlt { id: left.id, id_alt: right.id, span_alt: right.span } });
+                }
+            } else {
+                for left in left_divergence.iter() {
+                    traces.push(SymbolizerTrace { span: left.span, kind: SymbolizerTraceKind::TokenAmbiguous { id: left.id } });
+                }
+            }
+
             errors.push(SymbolizerError {
                 kind: SymbolizerErrorKind::AmbiguousSpan(left_divergence, right_divergence),
                 span: (start..tk_left.span.end).into()
-            })
+            });
         }
 
-        Symbolized { tokens: s0, errors }
+        let mut end_prev = 0;
+        let mut ambiguous_points_iter = ambiguous_points.iter().rev();
+        let mut j_next = ambiguous_points_iter.next();
+        for &i in opt_schedule.iter().rev() {
+            let tk = token_candidates[i - 1];
+            let span = SymbolizerSpan::from(tk.span);
+            match tk.kind {
+                dictionary::TokenizeResultKind::BareIdBig => {
+                    errors.push(SymbolizerError {
+                        kind: SymbolizerErrorKind::OutOfNativeIntBounds,
+                        span,
+                    });
+                    traces.push(SymbolizerTrace {
+                        span,
+                        kind: SymbolizerTraceKind::TokenBig,
+                    });
+                },
+                _ => {
+                        tokens.push(SymbolizerToken {
+                            id: tk.id,
+                            span: span,
+                        });
+                    if let Some(j) = j_next && i == *j {
+                        trace_ambiguous_endpoint(&mut errors, &mut traces, &weights, &precedes, &optimal, &token_candidates, *j);
+                        j_next = ambiguous_points_iter.next();
+                    } else {
+                        traces.push(SymbolizerTrace {
+                            span,
+                            kind: SymbolizerTraceKind::Token { id: tk.id },
+                        });
+                    }
+                }
+            }
+
+            trace_uncovered_region(&mut errors, &mut traces, input, end_prev, tk.span.start);
+            end_prev = tk.span.end;
+        }
+        if end_prev < input.len() {
+            trace_uncovered_region(&mut errors, &mut traces, input, end_prev, input.len());
+        }
+
+        Symbolized { tokens, errors, traces }
     }
 }

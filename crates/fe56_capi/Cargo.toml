@@ -1,0 +1,19 @@
+[package]
+name = "fe56_capi"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+name = "fe56"
+crate-type = ["staticlib"]
+
+[dependencies]
+fe56_translation = { path = "../fe56_translation" }
+
+[build-dependencies]
+cbindgen = "0.29.4"
+
+[features]
+default = ["run-cbindgen-and-copy-to-tree"]
+run-cbindgen = []
+run-cbindgen-and-copy-to-tree = []
