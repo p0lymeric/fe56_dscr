@@ -326,40 +326,49 @@ impl Symbolizer for MwisSymbolizer {
 
         // Collect spans within untokenized regions
         fn trace_uncovered_region(errors: &mut Vec<SymbolizerError>, traces: &mut Vec<SymbolizerTrace>, input: &str, left: usize, right: usize) {
-            let mut last_start = left;
-            let mut maybe_error_start: Option<usize> = None;
-            for (off, c) in input[left..right].char_indices() {
+            // " PAIN  "
+            // "3222211"
+            // ^left  ^right
+            //   --> string (slicing) order
+            //   <-- tokenization (iteration) order
+            let mut last_end = right;
+            let mut maybe_error_end: Option<usize> = None;
+            for (off, c) in input[left..right].char_indices().rev() {
+                let pos = left + off;
+                let next = pos + c.len_utf8();
                 if !c.is_whitespace() {
-                    if maybe_error_start == None {
-                        if last_start != left + off {
-                            let span = SymbolizerSpan::from(last_start..left + off);
+                    if maybe_error_end.is_none() {
+                        if last_end != next {
+                            let span = SymbolizerSpan::from(next..last_end);
                             traces.push(SymbolizerTrace { span, kind: SymbolizerTraceKind::Whitespace });
-                            last_start = left + off;
+                            last_end = next;
                         }
-                        maybe_error_start = Some(left + off);
+                        maybe_error_end = Some(next);
                     }
                 } else {
-                    if let Some(error_start) = maybe_error_start {
-                        let span = SymbolizerSpan::from(error_start..left + off);
+                    if let Some(error_end) = maybe_error_end {
+                        let span = SymbolizerSpan::from(next..error_end);
                         errors.push(SymbolizerError { kind: SymbolizerErrorKind::EntryNotFound, span });
                         traces.push(SymbolizerTrace { span, kind: SymbolizerTraceKind::Unconsumed });
-                        maybe_error_start = None;
-                        last_start = left + off;
+                        maybe_error_end = None;
+                        last_end = next;
                     }
                 }
             }
-            if let Some(error_start) = maybe_error_start {
-                let span = SymbolizerSpan::from(error_start..right);
+            if let Some(error_end) = maybe_error_end {
+                let span = SymbolizerSpan::from(left..error_end);
                 errors.push(SymbolizerError { kind: SymbolizerErrorKind::EntryNotFound, span });
                 traces.push(SymbolizerTrace { span, kind: SymbolizerTraceKind::Unconsumed });
-            } else if last_start != right {
-                let span = SymbolizerSpan::from(last_start..right);
+            } else if last_end != left {
+                let span = SymbolizerSpan::from(left..last_end);
                 traces.push(SymbolizerTrace { span, kind: SymbolizerTraceKind::Whitespace });
             }
         }
 
         // Trace ambiguous spans
-        fn trace_ambiguous_endpoint(errors: &mut Vec<SymbolizerError>, traces: &mut Vec<SymbolizerTrace>, weights: &Vec<MwisWeight>, precedes: &Vec<usize>, optimal: &Vec<MwisWeight>, token_candidates: &Vec<dictionary::TokenizeResult>, j: usize) {
+        fn trace_ambiguous_endpoint(errors: &mut Vec<SymbolizerError>, weights: &Vec<MwisWeight>, precedes: &Vec<usize>, optimal: &Vec<MwisWeight>, token_candidates: &Vec<dictionary::TokenizeResult>, j: usize) -> Vec<SymbolizerTrace> {
+            let mut traces_to_push: Vec<SymbolizerTrace> = Vec::new();
+
             let mut left_divergence: Vec<SymbolizerToken> = Vec::new();
             let mut right_divergence: Vec<SymbolizerToken> = Vec::new();
 
@@ -402,19 +411,13 @@ impl Symbolizer for MwisSymbolizer {
                 left_divergence.first().unwrap().span.start
             };
 
-            // Delete what was pushed before into traces
-            // FIXME hacky, could we end up deleting whitespace and cause a frameshift?
-            // May need to iterate through opt_schedule in actual order so we can skip the parent iterator
-            // traces.truncate(traces.len() - left_divergence.len());
-            // FIXME NOT IMPLEMENTED
-
             if left_divergence.len() == right_divergence.len() {
                 for (left, right) in left_divergence.iter().zip(&right_divergence) {
-                    traces.push(SymbolizerTrace { span: left.span, kind: SymbolizerTraceKind::TokenAmbiguousAlt { id: left.id, id_alt: right.id, span_alt: right.span } });
+                    traces_to_push.push(SymbolizerTrace { span: left.span, kind: SymbolizerTraceKind::TokenAmbiguousAlt { id: left.id, id_alt: right.id, span_alt: right.span } });
                 }
             } else {
                 for left in left_divergence.iter() {
-                    traces.push(SymbolizerTrace { span: left.span, kind: SymbolizerTraceKind::TokenAmbiguous { id: left.id } });
+                    traces_to_push.push(SymbolizerTrace { span: left.span, kind: SymbolizerTraceKind::TokenAmbiguous { id: left.id } });
                 }
             }
 
@@ -422,14 +425,36 @@ impl Symbolizer for MwisSymbolizer {
                 kind: SymbolizerErrorKind::AmbiguousSpan(left_divergence, right_divergence),
                 span: (start..tk_left.span.end).into()
             });
+
+            return traces_to_push;
         }
 
-        let mut end_prev = 0;
-        let mut ambiguous_points_iter = ambiguous_points.iter().rev();
+        let mut start_next = input.len();
+        let mut ambiguous_points_iter = ambiguous_points.iter();
         let mut j_next = ambiguous_points_iter.next();
-        for &i in opt_schedule.iter().rev() {
+        let mut ambiguous_traces_outstanding: Vec<SymbolizerTrace> = Vec::new();
+        for &i in opt_schedule.iter() {
             let tk = token_candidates[i - 1];
             let span = SymbolizerSpan::from(tk.span);
+            // 8..9 6..8 0..6
+            //   <-- sentence (final reading) order
+            //   --> schedule (iteration) order
+
+            // We iterate in reverse sentence order because ambiguities are reported on ending tokens,
+            // by nature of the scheduling algorithm.
+
+            // DID YOU KNOW? 6..8 is a sophisticated cultural reference (6..=X) == ???
+
+            trace_uncovered_region(&mut errors, &mut traces, input, tk.span.end, start_next);
+
+            if let Some(j) = j_next && i == *j {
+                // TODO kind of hacky way to sequence ambiguous traces into the stream
+                ambiguous_traces_outstanding.clear();
+                ambiguous_traces_outstanding.append(&mut trace_ambiguous_endpoint(&mut errors, &weights, &precedes, &optimal, &token_candidates, *j));
+                j_next = ambiguous_points_iter.next();
+            }
+            let maybe_ambiguous_trace = ambiguous_traces_outstanding.pop();
+
             match tk.kind {
                 dictionary::TokenizeResultKind::BareIdBig => {
                     errors.push(SymbolizerError {
@@ -442,13 +467,12 @@ impl Symbolizer for MwisSymbolizer {
                     });
                 },
                 _ => {
-                        tokens.push(SymbolizerToken {
-                            id: tk.id,
-                            span: span,
-                        });
-                    if let Some(j) = j_next && i == *j {
-                        trace_ambiguous_endpoint(&mut errors, &mut traces, &weights, &precedes, &optimal, &token_candidates, *j);
-                        j_next = ambiguous_points_iter.next();
+                    tokens.push(SymbolizerToken {
+                        id: tk.id,
+                        span: span,
+                    });
+                    if let Some(ambiguous_trace) = maybe_ambiguous_trace {
+                        traces.push(ambiguous_trace);
                     } else {
                         traces.push(SymbolizerTrace {
                             span,
@@ -458,12 +482,15 @@ impl Symbolizer for MwisSymbolizer {
                 }
             }
 
-            trace_uncovered_region(&mut errors, &mut traces, input, end_prev, tk.span.start);
-            end_prev = tk.span.end;
+            start_next = tk.span.start;
         }
-        if end_prev < input.len() {
-            trace_uncovered_region(&mut errors, &mut traces, input, end_prev, input.len());
+        if start_next > 0 {
+            trace_uncovered_region(&mut errors, &mut traces, input, 0, start_next);
         }
+
+        traces.reverse();
+        errors.reverse();
+        tokens.reverse();
 
         Symbolized { tokens, errors, traces }
     }

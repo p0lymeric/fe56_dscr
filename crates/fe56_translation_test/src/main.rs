@@ -107,6 +107,18 @@ impl eframe::App for MyEguiApp {
                     _ => {}
                 }
             }
+            let mut trace = String::new();
+            for tr in &self.my_tokenization.traces {
+                match tr.kind {
+                    fe56_translation::compiler::SymbolizerTraceKind::Token { id } => trace.push_str(&self.my_string[tr.span.start..tr.span.end]),
+                    fe56_translation::compiler::SymbolizerTraceKind::TokenBig => trace.push_str(&self.my_string[tr.span.start..tr.span.end]),
+                    fe56_translation::compiler::SymbolizerTraceKind::TokenAmbiguousAlt { id, id_alt, span_alt } => trace.push_str(&self.my_string[tr.span.start..tr.span.end]),
+                    fe56_translation::compiler::SymbolizerTraceKind::TokenAmbiguous { id } => trace.push_str(&self.my_string[tr.span.start..tr.span.end]),
+                    fe56_translation::compiler::SymbolizerTraceKind::Unconsumed => trace.push_str(&self.my_string[tr.span.start..tr.span.end]),
+                    fe56_translation::compiler::SymbolizerTraceKind::Whitespace => trace.push_str(&self.my_string[tr.span.start..tr.span.end]),
+                }
+            }
+            ui.add(egui::TextEdit::multiline(&mut trace.as_str()).desired_width(f32::INFINITY));
             ui.add(egui::TextEdit::multiline(&mut underline.iter().collect::<String>()).desired_width(f32::INFINITY));
             egui::ScrollArea::vertical().id_salt("tks").show(ui, |ui| {
                 for tk in &self.my_tokenization.tokens {

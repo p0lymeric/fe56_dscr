@@ -65,8 +65,8 @@ pub enum SymbolizerTraceKind {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(C)]
 pub struct SymbolizerTrace {
-    span: SymbolizerSpan<usize>,
-    kind: SymbolizerTraceKind,
+    pub span: SymbolizerSpan<usize>,
+    pub kind: SymbolizerTraceKind,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
