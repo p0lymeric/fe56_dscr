@@ -61,6 +61,23 @@ typedef struct Fe56RVec_SymbolizerTrace {
     uintptr_t capacity;
 } Fe56RVec_SymbolizerTrace;
 
+typedef struct Fe56RStr {
+    uint8_t *ptr;
+    uintptr_t size;
+    uintptr_t capacity;
+} Fe56RStr;
+
+typedef struct Fe56RVec_SymbolizerSpan_usize {
+    struct Fe56SymbolizerSpan_usize *ptr;
+    uintptr_t size;
+    uintptr_t capacity;
+} Fe56RVec_SymbolizerSpan_usize;
+
+typedef struct Fe56RDesymbolized {
+    struct Fe56RStr text;
+    struct Fe56RVec_SymbolizerSpan_usize spans;
+} Fe56RDesymbolized;
+
 
 
 
@@ -78,6 +95,12 @@ struct Fe56RVec_SymbolizerTrace fe56_mwis_symbolize(const struct Fe56JsonDiction
                                                     uintptr_t size);
 
 void fe56_rvec_symbolizertrace_free(struct Fe56RVec_SymbolizerTrace r_vec);
+
+struct Fe56RDesymbolized fe56_reformatter_desymbolize(const struct Fe56JsonDictionary *p_jsondictionary,
+                                                      const int64_t *p_arr,
+                                                      uintptr_t size);
+
+void fe56_rdesymbolized_free(struct Fe56RDesymbolized r_desymbolized);
 
 #ifdef __cplusplus
 }  // extern "C"
