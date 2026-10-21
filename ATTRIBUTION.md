@@ -4,13 +4,13 @@ This repository gratefully includes materials from the following works.
 
 #### Code libraries
 * B612
-  * `cpp/c14/assets/fonts/B612`
+  * `cpp/c13/assets/fonts/B612`
   * `Copyright 2012 The B612 Project Authors (https://github.com/polarsys/b612)`
   * SIL Open Font License 1.1
   * https://fonts.google.com/specimen/B612
 
 * B612 Mono
-  * `cpp/c14/assets/fonts/B612_Mono`
+  * `cpp/c13/assets/fonts/B612_Mono`
   * `Copyright 2012 The B612 Project Authors (https://github.com/polarsys/b612)`
   * SIL Open Font License 1.1
   * https://fonts.google.com/specimen/B612+Mono
