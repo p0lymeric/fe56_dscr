@@ -1,7 +1,10 @@
 cmake_minimum_required(VERSION 3.19)
 project(c14 LANGUAGES CXX)
 
-find_package(Qt6 6.5 REQUIRED COMPONENTS Core Widgets WebSockets)
+find_package(Qt6 6.5 REQUIRED COMPONENTS Core Widgets WebSockets Sql)
+
+# enable use of qrc resource files
+set(CMAKE_AUTORCC ON)
 
 qt_standard_project_setup()
 
@@ -10,6 +13,10 @@ qt_add_executable(c14
     main.cpp
     mainwindow.h mainwindow.cpp mainwindow.ui
     dscrclient.h dscrclient.cpp
+    database.h database.cpp
+    serverconnectdialog.h serverconnectdialog.cpp serverconnectdialog.ui
+    assets.qrc
+
 )
 
 target_link_libraries(c14
@@ -17,6 +24,7 @@ target_link_libraries(c14
         Qt::Core
         Qt::Widgets
         Qt::WebSockets
+        Qt::Sql
 )
 
 # FIXME parameterize path

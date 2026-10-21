@@ -13,7 +13,7 @@ class DscrClient : public QObject {
 public:
     enum class TransportStatus { Disconnected, Connecting, BackingOff, Connected };
     Q_ENUM(TransportStatus)
-    enum class RegistrationStatus { Unregistered, Registering, Registered };
+    enum class RegistrationStatus { Unregistered, Registering, FailedAutoregister, Registered };
     Q_ENUM(RegistrationStatus)
 
     explicit DscrClient(QObject *parent = nullptr);
@@ -35,13 +35,13 @@ signals:
     void stateChanged();
     void dscrMessageReceived(const QDateTime &time, qint64 from, qint64 sequenceNum, const QVector<qint64> &symbols);
     void callSignsChanged(const QDateTime &time, const QVector<qint64> &callSigns);
-    void textMessageReceived(const QString &text);
+    void textMessageReceived(const QDateTime &time, const QString &text);
 
 private slots:
     void onSocketConnected();
     void onSocketDisconnected();
     void onSocketTextMessageReceived(const QString &text);
-    // void onSocketErrorOccurred(QAbstractSocket::SocketError error);
+    void onSocketErrorOccurred(QAbstractSocket::SocketError error);
     void onTimerTimeout();
 
 private:

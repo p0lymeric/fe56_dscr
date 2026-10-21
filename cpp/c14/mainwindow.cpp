@@ -3,7 +3,10 @@
 
 #include <QFile>
 
-MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWindow) {
+MainWindow::MainWindow(QWidget *parent) :
+    QMainWindow(parent),
+    ui(new Ui::MainWindow)
+{
     ui->setupUi(this);
 
     QObject::connect(this->ui->messageEditor, &QTextEdit::textChanged, this, &MainWindow::onMessageEditorTextChanged);
@@ -20,6 +23,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
 
     dscrClient.register_(01444, false);
     dscrClient.open(QUrl("wss://dscr-relay.dixonary.co.uk"));
+    ui->chatBrowser->setFont(QFont("B612 Mono", 12));
 }
 
 void MainWindow::onMessageEditorTextChanged() {
@@ -79,9 +83,35 @@ void MainWindow::onMessageEditorTextChanged() {
 }
 
 void MainWindow::onDscrClientDscrMessageReceived(const QDateTime &time, qint64 from, qint64 sequenceNum, const QVector<qint64> &symbols) {
+    int avgCharWidth = this->ui->chatBrowser->fontMetrics().averageCharWidth();
+    int sequenceWidth = avgCharWidth * (3 + 2);
+
+    QTextBlockFormat headerBlockFormat;
+    headerBlockFormat.setTopMargin(6);
+    headerBlockFormat.setBottomMargin(0);
+    QTextBlockFormat messageBlockFormat;
+    messageBlockFormat.setTopMargin(0);
+    messageBlockFormat.setLeftMargin(sequenceWidth);
+
+    QTextCharFormat sequenceFormat;
+    sequenceFormat.setForeground(Qt::gray);
+    sequenceFormat.setToolTip(QLocale().toString(time.toLocalTime(), QLocale::LongFormat));
+    QTextCharFormat callsignFormat;
+    callsignFormat.setFontWeight(QFont::Bold);
+    QTextCharFormat messageFormat;
+
+    QTextCursor cur(this->ui->chatBrowser->document());
+    cur.movePosition(QTextCursor::End);
+
+    cur.insertBlock(headerBlockFormat);
+    cur.insertText(QString::number(sequenceNum).rightJustified(3, '0'), sequenceFormat);
+    cur.insertText("  ");
+    cur.insertText(QString::number(from, 8).rightJustified(4, '0'), callsignFormat);
+
+    cur.insertBlock(messageBlockFormat);
     Fe56RDesymbolized desym = fe56_reformatter_desymbolize(this->dictionary, symbols.constData(), symbols.size());
     QString str = QString::fromUtf8(QByteArrayView(desym.text.ptr, desym.text.size));
-    this->ui->chatBrowser->append(QString("<span style=\"color:gray\">%1 [%2]</span> <b>%3</b> %4").arg(time.toString()).arg(sequenceNum).arg(from).arg(str.toHtmlEscaped()));
+    cur.insertText(str, messageFormat);
     fe56_rdesymbolized_free(desym);
 }
 

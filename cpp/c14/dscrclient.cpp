@@ -2,6 +2,8 @@
 
 #include <QDebug>
 
+// https://github.com/dixonary/mfds-server/tree/main
+
 // helpers
 static constexpr int connectBackoffMs(quint32 numConnectFailures) {
     switch(numConnectFailures) {
@@ -27,11 +29,13 @@ static const int CONNECT_TIMEOUT_MS = 5000;
 static const int MESSAGE_ACK_TIMEOUT_MS = 5000;
 
 // public
-DscrClient::DscrClient(QObject *parent) : QObject(parent) {
+DscrClient::DscrClient(QObject *parent) :
+    QObject(parent)
+{
     QObject::connect(&this->socket, &QWebSocket::connected, this, &DscrClient::onSocketConnected);
     QObject::connect(&this->socket, &QWebSocket::disconnected, this, &DscrClient::onSocketDisconnected);
     QObject::connect(&this->socket, &QWebSocket::textMessageReceived, this, &DscrClient::onSocketTextMessageReceived);
-    // QObject::connect(&this->socket, &QWebSocket::errorOccurred, this, &DscrClient::onSocketErrorOccurred);
+    QObject::connect(&this->socket, &QWebSocket::errorOccurred, this, &DscrClient::onSocketErrorOccurred);
     QObject::connect(&this->timer, &QTimer::timeout, this, &DscrClient::onTimerTimeout);
     this->timer.setSingleShot(true);
 }
@@ -46,18 +50,18 @@ void DscrClient::open(const QUrl &url) {
 
 void DscrClient::close() {
     qDebug() << "DscrClient::close";
-    this->socket.close(QWebSocketProtocol::CloseCodeNormal);
-    this->socket.abort();
-    this->timer.stop();
     this->connectionEnabled = false;
     this->registrationEnabled = false;
     this->everRegistered = false;
     this->transportStatus = DscrClient::TransportStatus::Disconnected;
     this->registrationStatus = DscrClient::RegistrationStatus::Unregistered;
+    this->socket.close(QWebSocketProtocol::CloseCodeNormal);
+    this->socket.abort();
+    this->timer.stop();
 }
 
 void DscrClient::register_(qint64 callSign, bool tryFastReregister) {
-    qDebug() << "DscrClient::register" << callSign << tryFastReregister;
+    qDebug() << "DscrClient::register_" << callSign << tryFastReregister;
     this->desiredCallSign = callSign;
     this->registrationEnabled = true;
     this->fastReregistrationEnabled = tryFastReregister;
@@ -107,17 +111,26 @@ void DscrClient::onSocketConnected() {
 void DscrClient::onSocketDisconnected() {
     this->transportStatus = TransportStatus::Disconnected;
     this->registrationStatus = DscrClient::RegistrationStatus::Unregistered;
-    this->numConnectFailures = 0;
     if(this->connectionEnabled) {
         this->attemptConnect();
     }
 }
 void DscrClient::onSocketTextMessageReceived(const QString &text) {
-    const QDateTime time = QDateTime::currentDateTimeUtc();
+    const QDateTime time = QDateTime::currentDateTime();
     qDebug() << time << "DscrClient::onSocketTextMessageReceived" << text;
-    emit this->textMessageReceived(text);
+
+    emit this->textMessageReceived(time, text);
 
     const QStringList messageContents = text.split(",");
+
+    QChar signifier;
+    if(messageContents[0].length() == 1) {
+        signifier = messageContents[0][0];
+    } else {
+        // abort due to non-character signifier
+        return;
+    }
+
     QVector<qint64> integers;
     integers.reserve(messageContents.size() - 1);
     for(qsizetype i = 1; i < messageContents.size(); i++) {
@@ -126,34 +139,67 @@ void DscrClient::onSocketTextMessageReceived(const QString &text) {
         if(ok) {
             integers.append(val);
         } else {
-            // don't continue parsing the message
+            // abort due to non-integer
             return;
         }
     }
 
-    if(messageContents[0] == "R") {
-        if(integers.size() >= 3) {
-            emit this->dscrMessageReceived(time, integers[0], integers[1], integers.mid(2));
-        }
-    } else if(messageContents[0] == "K") {
-        // TODO registration
-    } else if(messageContents[0] == "E") {
-        // TODO registration
-    } else if(messageContents[0] == "U") {
-        // TODO registration
-    } else if(messageContents[0] == "C") {
-        emit this->callSignsChanged(time, integers);
+    switch(signifier.unicode()) {
+        case 'R':
+            // Received Message
+            if(integers.size() >= 2) {
+                // Nominally a message should be non-empty (>= 3) but we'll tolerate the empty case (== 2)
+                emit this->dscrMessageReceived(time, integers[0], integers[1], integers.mid(2));
+            }
+            break;
+        case 'K':
+            // Call sign OK
+            this->registrationStatus = RegistrationStatus::Registered;
+            if(integers.size() >= 1) {
+                // TODO should verify that the ack'd callsign was our desired one
+                this->registeredCallSign = integers[0];
+            }
+            this->everRegistered = true;
+            this->timer.stop();
+            break;
+        case 'E':
+            // Reconnect OK
+            this->registrationStatus = RegistrationStatus::Registered;
+            this->everRegistered = true;
+            this->timer.stop();
+            break;
+        case 'U':
+            // Call sign in use
+            this->registrationStatus = RegistrationStatus::FailedAutoregister;
+            this->timer.stop();
+            break;
+        case 'C':
+            // Call signs update
+            emit this->callSignsChanged(time, integers);
+            break;
     }
 }
-// void DscrClient::onSocketErrorOccurred(QAbstractSocket::SocketError error);
+
+void DscrClient::onSocketErrorOccurred(QAbstractSocket::SocketError error) {
+    qDebug() << "DscrClient::onSocketErrorOccurred" << error;
+    this->socket.abort();
+    this->transportStatus = DscrClient::TransportStatus::BackingOff;
+    this->timer.setInterval(connectBackoffMs(this->numConnectFailures));
+    this->numConnectFailures++;
+    this->timer.start();
+}
+
 void DscrClient::onTimerTimeout() {
     if(this->transportStatus == DscrClient::TransportStatus::Connecting) {
         this->socket.abort();
         this->transportStatus = DscrClient::TransportStatus::BackingOff;
         this->timer.setInterval(connectBackoffMs(this->numConnectFailures));
+        this->numConnectFailures++;
         this->timer.start();
     } else if(this->transportStatus == DscrClient::TransportStatus::BackingOff) {
         this->attemptConnect();
+    } else if(this->registrationStatus == DscrClient::RegistrationStatus::Registering) {
+        this->registrationStatus = RegistrationStatus::FailedAutoregister;
     }
 }
 
@@ -176,6 +222,6 @@ void DscrClient::attemptRegister() {
         this->socket.sendTextMessage(QString("S,%1").arg(this->desiredCallSign));
     }
     this->registrationStatus = RegistrationStatus::Registering;
-    // this->timer.setInterval(MESSAGE_ACK_TIMEOUT_MS);
-    // this->timer.start();
+    this->timer.setInterval(MESSAGE_ACK_TIMEOUT_MS);
+    this->timer.start();
 }
