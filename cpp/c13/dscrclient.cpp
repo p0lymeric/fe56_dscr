@@ -69,6 +69,9 @@ void DscrClient::register_(qint64 callSign, bool tryFastReregister) {
 }
 
 void DscrClient::sendWsTextMessage(const QString &text) {
+    const QDateTime time = QDateTime::currentDateTime();
+    qDebug() << time << "DscrClient::sendWsTextMessage" << text;
+    emit this->textMessageSent(time, text);
     this->socket.sendTextMessage(text);
 }
 
@@ -81,7 +84,7 @@ void DscrClient::sendDscrMessage(const QVector<qint64> &symbols) {
         for(auto symbol : symbols) {
             message += QString(",%1").arg(symbol);
         }
-        this->socket.sendTextMessage(message);
+        this->sendWsTextMessage(message);
     }
 }
 
@@ -95,12 +98,19 @@ bool DscrClient::isConnectedAndRegistered() const {
     return this->transportStatus == TransportStatus::Connected && this->registrationStatus == RegistrationStatus::Registered;
 }
 
+const QUrl &DscrClient::getUrl() const {
+    return this->url;
+}
+
 qint64 DscrClient::getRegisteredCallsign() const {
     return this->registeredCallSign;
 }
 
 // private slots
 void DscrClient::onSocketConnected() {
+    const QDateTime time = QDateTime::currentDateTime();
+    qDebug() << time << "DscrClient::onSocketConnected";
+    emit this->connected(time, this->url);
     this->transportStatus = TransportStatus::Connected;
     this->numConnectFailures = 0;
     this->timer.stop();
@@ -217,9 +227,9 @@ void DscrClient::attemptRegister() {
     }
     if(false /*this->fastReregistrationEnabled*/) {
         // TODO need to track time disconnected
-        this->socket.sendTextMessage(QString("S,%1,0").arg(this->desiredCallSign));
+        this->sendWsTextMessage(QString("S,%1,0").arg(this->desiredCallSign));
     } else {
-        this->socket.sendTextMessage(QString("S,%1").arg(this->desiredCallSign));
+        this->sendWsTextMessage(QString("S,%1").arg(this->desiredCallSign));
     }
     this->registrationStatus = RegistrationStatus::Registering;
     this->timer.setInterval(MESSAGE_ACK_TIMEOUT_MS);

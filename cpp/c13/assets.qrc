@@ -11,4 +11,7 @@
         <file alias="B612Mono-Italic.ttf">assets/fonts/B612_Mono/B612Mono-Italic.ttf</file>
         <file alias="B612Mono-Regular.ttf">assets/fonts/B612_Mono/B612Mono-Regular.ttf</file>
     </qresource>
+    <qresource prefix="/sql">
+        <file alias="init.sql">assets/sql/init.sql</file>
+    </qresource>
 </RCC>

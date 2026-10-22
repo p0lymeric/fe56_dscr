@@ -28,13 +28,15 @@ public:
     TransportStatus getTransportStatus() const;
     RegistrationStatus getRegistrationStatus() const;
     bool isConnectedAndRegistered() const;
+    const QUrl &getUrl() const;
 
     qint64 getRegisteredCallsign() const;
 
 signals:
-    void stateChanged();
+    void connected(const QDateTime &time, const QUrl &url);
     void dscrMessageReceived(const QDateTime &time, qint64 from, qint64 sequenceNum, const QVector<qint64> &symbols);
     void callSignsChanged(const QDateTime &time, const QVector<qint64> &callSigns);
+    void textMessageSent(const QDateTime &time, const QString &text);
     void textMessageReceived(const QDateTime &time, const QString &text);
 
 private slots:

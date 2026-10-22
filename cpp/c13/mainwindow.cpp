@@ -1,7 +1,10 @@
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
 
+#include <QCoreApplication>
+#include <QDir>
 #include <QFile>
+#include <QSqlQuery>
 
 MainWindow::MainWindow(QWidget *parent) :
     QMainWindow(parent),
@@ -10,8 +13,11 @@ MainWindow::MainWindow(QWidget *parent) :
     ui->setupUi(this);
 
     QObject::connect(this->ui->messageEditor, &QTextEdit::textChanged, this, &MainWindow::onMessageEditorTextChanged);
+    QObject::connect(&this->dscrClient, &DscrClient::connected, this, &MainWindow::onDscrClientConnected);
     QObject::connect(&this->dscrClient, &DscrClient::dscrMessageReceived, this, &MainWindow::onDscrClientDscrMessageReceived);
     QObject::connect(&this->dscrClient, &DscrClient::callSignsChanged, this, &MainWindow::onDscrClientCallSignsChanged);
+    QObject::connect(&this->dscrClient, &DscrClient::textMessageSent, this, &MainWindow::onDscrClientTextMessageSent);
+    QObject::connect(&this->dscrClient, &DscrClient::textMessageReceived, this, &MainWindow::onDscrClientTextMessageReceived);
 
     QFile dict("C:\\Games\\TMDSDecomp\\save\\DICTIONARY-1.save");
     if (dict.open(QIODevice::ReadOnly)) {
@@ -20,6 +26,8 @@ MainWindow::MainWindow(QWidget *parent) :
     } else {
         this->dictionary = fe56_jsondictionary_new(nullptr, 0);
     }
+
+    this->database.open(QDir(QCoreApplication::applicationDirPath()).filePath("c13.sqlite3"));
 
     dscrClient.register_(01444, false);
     dscrClient.open(QUrl("wss://dscr-relay.dixonary.co.uk"));
@@ -117,6 +125,60 @@ void MainWindow::onDscrClientDscrMessageReceived(const QDateTime &time, qint64 f
 
 void MainWindow::onDscrClientCallSignsChanged(const QDateTime &time, const QVector<qint64> &callSigns) {
 
+}
+
+void MainWindow::onDscrClientConnected(const QDateTime &time, const QUrl &url) {
+    this->database.scopedTransaction([&](Database &db) {
+        this->database.queryGetOrInsertServer->addBindValue(url.host(QUrl::FullyEncoded));
+        this->database.queryGetOrInsertServer->addBindValue(url.port(url.scheme() == "wss" ? 443 : 80));
+        this->database.queryGetOrInsertServer->exec();
+        this->database.queryGetOrInsertServer->next();
+        qint64 serverId = this->database.queryGetOrInsertServer->value(0).toLongLong();
+        this->database.queryGetOrInsertServer->finish();
+
+        this->database.queryInsertAndGetSession->addBindValue(serverId);
+        this->database.queryInsertAndGetSession->addBindValue(time.toMSecsSinceEpoch());
+        this->database.queryInsertAndGetSession->exec();
+        this->database.queryInsertAndGetSession->next();
+        qint64 sessionId = this->database.queryInsertAndGetSession->value(0).toLongLong();
+        this->database.queryInsertAndGetSession->finish();
+
+        this->sessionId = sessionId;
+
+        return true;
+    });
+}
+
+void MainWindow::onDscrClientTextMessageSent(const QDateTime &time, const QString &text) {
+    if(!this->sessionId.has_value()) {
+        return;
+    }
+    this->database.scopedTransaction([&](Database &db) {
+        this->database.queryInsertWsMessage->addBindValue(this->sessionId.value());
+        this->database.queryInsertWsMessage->addBindValue(time.toMSecsSinceEpoch());
+        this->database.queryInsertWsMessage->addBindValue(1);
+        this->database.queryInsertWsMessage->addBindValue(0);
+        this->database.queryInsertWsMessage->addBindValue(text);
+        this->database.queryInsertWsMessage->exec();
+        this->database.queryInsertWsMessage->finish();
+        return true;
+    });
+}
+
+void MainWindow::onDscrClientTextMessageReceived(const QDateTime &time, const QString &text) {
+    if(!this->sessionId.has_value()) {
+        return;
+    }
+    this->database.scopedTransaction([&](Database &db) {
+        this->database.queryInsertWsMessage->addBindValue(this->sessionId.value());
+        this->database.queryInsertWsMessage->addBindValue(time.toMSecsSinceEpoch());
+        this->database.queryInsertWsMessage->addBindValue(0);
+        this->database.queryInsertWsMessage->addBindValue(0);
+        this->database.queryInsertWsMessage->addBindValue(text);
+        this->database.queryInsertWsMessage->exec();
+        this->database.queryInsertWsMessage->finish();
+        return true;
+    });
 }
 
 MainWindow::~MainWindow() {
