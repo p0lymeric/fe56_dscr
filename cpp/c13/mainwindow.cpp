@@ -125,8 +125,11 @@ MainWindow::MainWindow(QWidget *parent) :
         false,
     });
 
-    dscrClient.register_(01444, false);
-    dscrClient.open(QUrl("wss://dscr-relay.dixonary.co.uk"));
+    this->database.queryUpsertSetting("dscrClient.callsign", 01444);
+    this->database.queryUpsertSetting("dscrClient.url", "wss://dscr-relay.dixonary.co.uk");
+
+    dscrClient.register_(this->database.queryGetSetting("dscrClient.callsign").value_or(01444).toLongLong(), false);
+    dscrClient.open(QUrl(this->database.queryGetSetting("dscrClient.url").value_or("wss://dscr-relay.dixonary.co.uk").toString()));
     ui->chatBrowser->setFont(QFont("B612 Mono", 12));
 }
 

@@ -81,7 +81,7 @@ bool Database::open(const QString &path) {
     )");
     this->prepInsertIfDifferentTranslation = prepareStatement(this->dbConn, R"(
         INSERT INTO user_translations(signal, revision, mtime_posix_ms, word)
-        SELECT :signal, COALESCE(MAX(revision) + 1, 0), :mtime, :word
+        SELECT :signal, COALESCE(MAX(revision), 0) + 1, :mtime, :word
         FROM user_translations
         WHERE signal=:signal
         HAVING(
