@@ -2,9 +2,8 @@
 resolver = "3"
 members = [
     "crates/xtask",
-    #"crates/fe56_dscr_protocol",
-    #"crates/fe56_app",
     "crates/fe56_capi",
+    #"crates/fe56_dscr_protocol",
     "crates/fe56_translation",
     #"crates/fe56_translation_test",
     "crates/fe56_ucd_sys",

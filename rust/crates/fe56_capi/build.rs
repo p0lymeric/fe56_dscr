@@ -12,6 +12,7 @@ fn main() {
             .with_pragma_once(true)
             .with_tab_width(4)
             .with_line_endings(cbindgen::LineEndingStyle::Native)
+            .with_autogen_warning("/* This is an auto-generated file, created by cbindgen. */")
             .with_item_prefix("Fe56")
             .with_language(cbindgen::Language::C)
             .with_cpp_compat(true)

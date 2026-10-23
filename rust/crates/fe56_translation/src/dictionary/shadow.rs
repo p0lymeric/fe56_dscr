@@ -123,3 +123,95 @@ impl DictionaryMut for ShadowDictionary {
         true
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn make_dict_untoward() -> ShadowDictionary {
+        let mut dict = ShadowDictionary::new();
+        dict.add(-1, Definition { word: "UNTO".to_string(), desc: "desc".to_string(), format: dict.global_format() });
+        dict.add(-2, Definition { word: "WARD".to_string(), desc: "desc".to_string(), format: dict.global_format() });
+        dict.add(-3, Definition { word: "UNTOWARD".to_string(), desc: "desc".to_string(), format: dict.global_format() });
+        dict
+    }
+
+    #[test]
+    fn test_add() {
+        let _dict = make_dict_untoward();
+    }
+
+    #[test]
+    fn test_lookups() {
+        let dict = make_dict_untoward();
+
+        assert_eq!(dict.get(-1).expect("Can't find -1").word, "UNTO");
+        assert_eq!(dict.get(-2).expect("Can't find -2").word, "WARD");
+        assert_eq!(dict.get(-3).expect("Can't find -3").word, "UNTOWARD");
+
+        assert_eq!(dict.lookup_casefold("uNTO"), &[-1]);
+        assert_eq!(dict.lookup("uNTO"), None);
+        assert_eq!(dict.lookup_casefold("WARD"), &[-2]);
+        assert_eq!(dict.lookup("UNTOWARD"), Some(-3));
+    }
+
+    fn assert_eq_tokenize_at(dictionary: &dyn Dictionary, text: &str, text_casefold: &case::Casefolded, end: usize, lhs: &[TokenizeResult]) {
+        let mut out = Vec::new();
+        dictionary.tokenize_at(text, text_casefold, end, &mut out);
+        assert_eq!(out, lhs);
+    }
+
+    #[test]
+    fn test_tokenize_at_simple() {
+        let dict = make_dict_untoward();
+
+        let untoward_case_folded = dict.casefold("untoward");
+
+        assert_eq_tokenize_at(&dict, "UNTOWARD", &untoward_case_folded, 0, &[] as &[TokenizeResult]);
+
+        assert_eq_tokenize_at(&dict, "UNTOWARD", &untoward_case_folded, 1, &[] as &[TokenizeResult]);
+
+        assert_eq_tokenize_at(&dict, "UNTOWARD", &untoward_case_folded, 4, &[
+            TokenizeResult { kind: TokenizeResultKind::WordExact, id: -1, span: (0..4).into() },
+        ]);
+        assert_eq_tokenize_at(&dict, "UNTOWARD", &untoward_case_folded, 8, &[
+            TokenizeResult { kind: TokenizeResultKind::WordExact, id: -2, span: (4..8).into() },
+            TokenizeResult { kind: TokenizeResultKind::WordExact, id: -3, span: (0..8).into() },
+        ]);
+
+        assert_eq_tokenize_at(&dict, "UNTOWARD", &untoward_case_folded, 5, &[] as &[TokenizeResult]);
+
+        assert_eq_tokenize_at(&dict, "untoWARD", &untoward_case_folded, 0, &[] as &[TokenizeResult]);
+
+        assert_eq_tokenize_at(&dict, "untoWARD", &untoward_case_folded, 4, &[
+            TokenizeResult { kind: TokenizeResultKind::WordInexact, id: -1, span: (0..4).into() },
+        ]);
+
+        assert_eq_tokenize_at(&dict, "untoWARD", &untoward_case_folded, 8, &[
+            TokenizeResult { kind: TokenizeResultKind::WordExact, id: -2, span: (4..8).into() },
+            TokenizeResult { kind: TokenizeResultKind::WordInexact, id: -3, span: (0..8).into() },
+        ]);
+    }
+
+    #[test]
+    fn test_tokenize_at_full() {
+        let mut dict = ShadowDictionary::new();
+        dict.add(-1, Definition { word: "fußy".to_string(), desc: "desc".to_string(), format: dict.global_format() });
+        dict.add(-2, Definition { word: "FUSSY".to_string(), desc: "desc".to_string(), format: dict.global_format() });
+        dict.add(-3, Definition { word: "fus".to_string(), desc: "desc".to_string(), format: dict.global_format() });
+
+        let sus = "FUSSY fußy fus sus 🫪 susSy ß";
+        let sus_case_folded = dict.casefold(sus);
+
+        assert_eq_tokenize_at(&dict, sus, &sus_case_folded, 3, &[
+            TokenizeResult { kind: TokenizeResultKind::WordInexact, id: -3, span: (0..3).into() },
+        ]);
+
+        assert_eq_tokenize_at(&dict, sus, &sus_case_folded, 5, &[
+            TokenizeResult { kind: TokenizeResultKind::WordInexact, id: -1, span: (0..5).into() },
+            TokenizeResult { kind: TokenizeResultKind::WordExact, id: -2, span: (0..5).into() },
+        ]);
+
+        // TODO more predictions
+    }
+}

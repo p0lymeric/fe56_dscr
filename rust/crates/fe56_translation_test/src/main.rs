@@ -5,7 +5,7 @@ use eframe::egui;
 use egui::{Color32, FontId};
 use fe56_translation::compiler::SymbolizerErrorKind::{AmbiguousSpan, EntryNotFound};
 use fe56_translation::compiler::mwis::MwisSymbolizer;
-use fe56_translation::dictionary::json::JsonDictionary;
+use fe56_translation::dictionary::shadow::ShadowDictionary;
 use fe56_translation::dictionary::{Definition, Dictionary, DictionaryMut, Formatting, TokenizeResultKind};
 use fe56_translation::compiler::{Symbolized, Symbolizer, SymbolizerToken};
 
@@ -15,7 +15,7 @@ fn main() {
 }
 
 struct MyEguiApp {
-    dictionary: JsonDictionary,
+    dictionary: ShadowDictionary,
     my_string: String,
     my_tokenization: Symbolized,
 }
@@ -27,7 +27,7 @@ impl MyEguiApp {
         // Use the cc.gl (a glow::Context) to create graphics shaders and buffers that you can use
         // for e.g. egui::PaintCallback.
         let mut result = Self {
-            dictionary: JsonDictionary::new(Some(include_str!("../../fe56_translation/tests/artifacts/DICTIONARY-1.save"))).unwrap(),
+            dictionary: ShadowDictionary::new(),
             my_string: String::new(),
             my_tokenization: Symbolized { tokens: Vec::new(), errors: Vec::new(), traces: Vec::new() },
         };

@@ -1,5 +1,7 @@
 #pragma once
 
+/* This is an auto-generated file, created by cbindgen. */
+
 #include <stdarg.h>
 #include <stdbool.h>
 #include <stdint.h>
