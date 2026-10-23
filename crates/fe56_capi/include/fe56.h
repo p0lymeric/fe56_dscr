@@ -5,11 +5,22 @@
 #include <stdint.h>
 #include <stdlib.h>
 
-typedef struct Fe56Formatting Fe56Formatting;
+typedef enum Fe56SpacingKind {
+    None = 0,
+    Space = 1,
+    Newline = 2,
+    TwoNewline = 3,
+} Fe56SpacingKind;
 
-typedef struct Fe56JsonDictionary Fe56JsonDictionary;
+typedef struct Fe56ShadowDictionary Fe56ShadowDictionary;
 
-typedef struct Fe56SpacingKind Fe56SpacingKind;
+typedef struct Fe56Formatting {
+    enum Fe56SpacingKind before;
+    enum Fe56SpacingKind after;
+    bool break_on_double;
+} Fe56Formatting;
+#define Fe56Formatting_DIGIT (Fe56Formatting){ .before = None, .after = None, .break_on_double = false }
+#define Fe56Formatting_DEFAULT (Fe56Formatting){ .before = Space, .after = Newline, .break_on_double = false }
 
 typedef struct Fe56SymbolizerSpan_usize {
     uintptr_t start;
@@ -78,25 +89,32 @@ typedef struct Fe56RDesymbolized {
     struct Fe56RVec_SymbolizerSpan_usize spans;
 } Fe56RDesymbolized;
 
-
-
-
-
 #ifdef __cplusplus
 extern "C" {
 #endif // __cplusplus
 
-struct Fe56JsonDictionary *fe56_jsondictionary_new(const uint8_t *p_path, uintptr_t size);
+struct Fe56ShadowDictionary *fe56_dictionary_new(void);
 
-void fe56_jsondictionary_free(struct Fe56JsonDictionary *p_dictionary);
+bool fe56_dictionary_add(struct Fe56ShadowDictionary *p_dictionary,
+                         int64_t id,
+                         const uint8_t *p_word,
+                         uintptr_t size,
+                         struct Fe56Formatting format);
 
-struct Fe56RVec_SymbolizerTrace fe56_mwis_symbolize(const struct Fe56JsonDictionary *p_jsondictionary,
+bool fe56_dictionary_remove(struct Fe56ShadowDictionary *p_dictionary, int64_t id);
+
+bool fe56_dictionary_set_global_format(struct Fe56ShadowDictionary *p_dictionary,
+                                       struct Fe56Formatting formatting);
+
+void fe56_dictionary_free(struct Fe56ShadowDictionary *p_dictionary);
+
+struct Fe56RVec_SymbolizerTrace fe56_mwis_symbolize(const struct Fe56ShadowDictionary *p_dictionary,
                                                     const uint8_t *p_text,
                                                     uintptr_t size);
 
 void fe56_rvec_symbolizertrace_free(struct Fe56RVec_SymbolizerTrace r_vec);
 
-struct Fe56RDesymbolized fe56_reformatter_desymbolize(const struct Fe56JsonDictionary *p_jsondictionary,
+struct Fe56RDesymbolized fe56_reformatter_desymbolize(const struct Fe56ShadowDictionary *p_dictionary,
                                                       const int64_t *p_arr,
                                                       uintptr_t size);
 

@@ -13,6 +13,7 @@ use std::range::Range;
 // and search helpers for implementing signal compilers
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[repr(C)]
 pub enum SpacingKind {
     None = 0,
     Space = 1,
@@ -46,6 +47,7 @@ impl TryFrom<i64> for SpacingKind {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[repr(C)]
 pub struct Formatting {
     pub before: SpacingKind,
     pub after: SpacingKind,
@@ -79,7 +81,8 @@ pub type SymbolT = i64;
 pub enum TokenizeResultKind {
     WordInexact,
     WordExact,
-    Numeral,
+    Number,
+    NumberBig,
     BareId,
     BareIdBig,
 }

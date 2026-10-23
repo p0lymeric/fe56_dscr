@@ -5,6 +5,7 @@
 #include <QObject>
 #include <QSqlDatabase>
 #include <QSqlQuery>
+#include <QVariant>
 
 class Database : public QObject {
     Q_OBJECT
@@ -23,10 +24,14 @@ public:
 
     bool scopedTransaction(const std::function<bool(Database &)> &fn);
 
-    // TODO privatize
-    std::optional<QSqlQuery> queryGetOrInsertServer;
-    std::optional<QSqlQuery> queryInsertAndGetSession;
-    std::optional<QSqlQuery> queryInsertWsMessage;
+    std::optional<QVariant> queryGetSetting(const QString &key);
+    bool queryUpsertSetting(const QString &key, const QVariant &val);
+
+    std::optional<qint64> queryGetOrInsertServer(const QUrl &url);
+    std::optional<qint64> queryInsertAndGetSession(qint64 serverId, const QDateTime &time);
+    bool queryInsertWsMessage(qint64 sessionId, const QDateTime &time, const QString &text, int direction);
+    bool queryUpsertDictionary(qint64 signal, const QString &descr, int fmtBefore, int fmtAfter, bool breakOnDouble);
+    bool queryInsertIfDifferentTranslation(qint64 signal, const QDateTime &time, const QString &word);
 
 signals:
 
@@ -35,4 +40,14 @@ private:
 
     QString connName;
     QSqlDatabase dbConn;
+
+    std::optional<QSqlQuery> prepGetSetting;
+    std::optional<QSqlQuery> prepUpsertSetting;
+
+    std::optional<QSqlQuery> prepGetOrInsertServer;
+    std::optional<QSqlQuery> prepInsertAndGetSession;
+    std::optional<QSqlQuery> prepInsertWsMessage;
+
+    std::optional<QSqlQuery> prepUpsertDictionary;
+    std::optional<QSqlQuery> prepInsertIfDifferentTranslation;
 };

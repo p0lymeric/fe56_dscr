@@ -4,7 +4,10 @@ use fe56_translation::compiler::SymbolizerSpan;
 use fe56_translation::compiler::SymbolizerTrace;
 use fe56_translation::compiler::mwis::MwisSymbolizer;
 use fe56_translation::compiler::reformatter::CReformatterDesymbolizer;
-use fe56_translation::dictionary::json::JsonDictionary;
+use fe56_translation::dictionary::Definition;
+use fe56_translation::dictionary::DictionaryMut;
+use fe56_translation::dictionary::Formatting;
+use fe56_translation::dictionary::shadow::ShadowDictionary;
 
 #[derive(Debug, Clone)]
 #[repr(C)]
@@ -23,29 +26,43 @@ pub struct RStr {
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn fe56_jsondictionary_new(p_path: *const u8, size: usize) -> *mut JsonDictionary {
-    if p_path != std::ptr::null() {
-        let path = unsafe { str::from_utf8_unchecked(std::slice::from_raw_parts(p_path, size)) };
-        if let Ok(dict) = JsonDictionary::new(Some(path)) {
-            return Box::into_raw(Box::new(dict));
-        }
-    } else {
-        if let Ok(dict) = JsonDictionary::new(None) {
-            return Box::into_raw(Box::new(dict));
-        }
-    }
-    std::ptr::null_mut()
+pub extern "C" fn fe56_dictionary_new() -> *mut ShadowDictionary {
+    Box::into_raw(Box::new(ShadowDictionary::new()))
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn fe56_jsondictionary_free(p_dictionary: *mut JsonDictionary) {
+pub extern "C" fn fe56_dictionary_add(p_dictionary: *mut ShadowDictionary, id: i64, p_word: *const u8, size: usize, format: Formatting) -> bool {
+    let dictionary = unsafe { &mut *p_dictionary };
+    let word = unsafe { str::from_utf8_unchecked(std::slice::from_raw_parts(p_word, size)) };
+    dictionary.add(id, Definition {
+        word: word.to_string(),
+        desc: "".to_string(),
+        format: format,
+    })
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn fe56_dictionary_remove(p_dictionary: *mut ShadowDictionary, id: i64) -> bool {
+    let dictionary = unsafe { &mut *p_dictionary };
+    dictionary.remove(id)
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn fe56_dictionary_set_global_format(p_dictionary: *mut ShadowDictionary, formatting: Formatting) -> bool {
+    let dictionary = unsafe { &mut *p_dictionary };
+    dictionary.set_global_format(formatting)
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn fe56_dictionary_free(p_dictionary: *mut ShadowDictionary) {
     unsafe { std::mem::drop(Box::from_raw(p_dictionary)); }
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn fe56_mwis_symbolize(p_jsondictionary: *const JsonDictionary, p_text: *const u8, size: usize) -> RVec<SymbolizerTrace> {
-    let dictionary = unsafe { &*p_jsondictionary };
+pub extern "C" fn fe56_mwis_symbolize(p_dictionary: *const ShadowDictionary, p_text: *const u8, size: usize) -> RVec<SymbolizerTrace> {
+    let dictionary = unsafe { &*p_dictionary };
     let text = unsafe { str::from_utf8_unchecked(std::slice::from_raw_parts(p_text, size)) };
+
     let symbolized = MwisSymbolizer.symbolize(dictionary, text);
 
     let (ptr, size, capacity) = symbolized.traces.into_raw_parts();
@@ -66,8 +83,8 @@ pub struct RDesymbolized {
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn fe56_reformatter_desymbolize(p_jsondictionary: *const JsonDictionary, p_arr: *const i64, size: usize) -> RDesymbolized {
-    let dictionary = unsafe { &*p_jsondictionary };
+pub extern "C" fn fe56_reformatter_desymbolize(p_dictionary: *const ShadowDictionary, p_arr: *const i64, size: usize) -> RDesymbolized {
+    let dictionary = unsafe { &*p_dictionary };
     let arr = unsafe { std::slice::from_raw_parts(p_arr, size) };
 
     let desymbolized = CReformatterDesymbolizer.desymbolize(dictionary, arr);

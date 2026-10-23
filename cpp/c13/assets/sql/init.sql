@@ -56,6 +56,7 @@ CREATE TABLE memo_transmissions( -- List each valid M/R transmission not duplica
 -- User data
 CREATE TABLE user_peers( -- Notes on a particular callsign
     callsign INTEGER PRIMARY KEY,
+    archived INTEGER NOT NULL, -- Soft deletion with recovery
     mine INTEGER NOT NULL,
     nickname TEXT NOT NULL,
     notes TEXT NOT NULL
@@ -63,7 +64,7 @@ CREATE TABLE user_peers( -- Notes on a particular callsign
 
 CREATE TABLE user_dictionary( -- The translation dictionary
     signal INTEGER PRIMARY KEY,
-    json_ser_order INTEGER UNIQUE,
+    archived INTEGER NOT NULL, -- Soft deletion with recovery
     descr TEXT NOT NULL,
     fmt_before INTEGER NOT NULL,
     fmt_after INTEGER NOT NULL,
@@ -78,3 +79,12 @@ CREATE TABLE user_translations( -- A historical ID to word association in the di
     PRIMARY KEY(signal, revision),
     FOREIGN KEY(signal) REFERENCES user_dictionary(signal) ON DELETE RESTRICT
 ) STRICT, WITHOUT ROWID;
+
+CREATE TABLE user_settings( -- Key-value store for trivial app settings
+    key TEXT NOT NULL PRIMARY KEY,
+    val ANY
+) STRICT;
+
+-- Indices
+CREATE INDEX idx_log_sessions_server_id ON log_sessions(server_id); -- prepGetOrInsertServer FK check
+CREATE INDEX idx_log_wsmessages_session_id ON log_wsmessages(session_id); -- prepInsertAndGetSession FK check

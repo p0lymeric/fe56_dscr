@@ -27,10 +27,10 @@ target_link_libraries(c13
         Qt::Sql
 )
 
-# FIXME parameterize path
-set(RUST_TARGET_PATH ${CMAKE_CURRENT_SOURCE_DIR}/../../target/debug)
+# TODO integrate with Cargo or port symbolizer to C++
+set(RUST_TARGET_PATH ${CMAKE_CURRENT_SOURCE_DIR}/../../target)
 
-target_link_directories(c13 PRIVATE ${RUST_TARGET_PATH})
+target_link_directories(c13 PRIVATE "${RUST_TARGET_PATH}/$<IF:$<CONFIG:Debug>,debug,release>")
 target_link_libraries(c13 PRIVATE fe56 kernel32 ntdll userenv ws2_32 dbghelp)
 target_include_directories(c13 PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../../crates/fe56_capi/include)
 

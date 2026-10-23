@@ -1,7 +1,9 @@
 #include "database.h"
 
+#include <QDateTime>
 #include <QSqlQuery>
 #include <QFile>
+#include <QUrl>
 
 // public
 Database::Database(QObject *parent) : QObject(parent) {
@@ -40,27 +42,64 @@ bool Database::open(const QString &path) {
         return false;
     }
     // prepare statements and close if failed
+    this->prepGetSetting = prepareStatement(this->dbConn, R"(
+        SELECT val
+        FROM user_settings
+        WHERE key=:key
+    )");
+    this->prepUpsertSetting = prepareStatement(this->dbConn, R"(
+        INSERT OR REPLACE INTO user_settings(key, val)
+        VALUES(:key, :val)
+    )");
     // https://stackoverflow.com/a/79677694
-    this->queryGetOrInsertServer = prepareStatement(this->dbConn, R"(
-        INSERT INTO log_servers (host, port)
-        VALUES (?, ?)
-        ON CONFLICT (host, port)
-        DO UPDATE SET host = host
+    this->prepGetOrInsertServer = prepareStatement(this->dbConn, R"(
+        INSERT INTO log_servers(host, port)
+        VALUES(:host, :port)
+        ON CONFLICT(host, port)
+        DO UPDATE SET host=host
         RETURNING id
     )");
-    this->queryInsertAndGetSession = prepareStatement(this->dbConn, R"(
+    this->prepInsertAndGetSession = prepareStatement(this->dbConn, R"(
         INSERT INTO log_sessions(server_id, connect_posix_ms)
-        VALUES(?, ?)
+        VALUES(:server_id, :connect_posix_ms)
         RETURNING id
     )");
-    this->queryInsertWsMessage = prepareStatement(this->dbConn, R"(
+    this->prepInsertWsMessage = prepareStatement(this->dbConn, R"(
         INSERT INTO log_wsmessages(session_id, time_posix_ms, direction, kind, msg)
-        VALUES(?, ?, ?, ?, ?)
+        VALUES(:session_id, :time_posix_ms, :direction, :kind, :msg)
+    )");
+    this->prepUpsertDictionary = prepareStatement(this->dbConn, R"(
+        INSERT INTO user_dictionary(signal, archived, descr, fmt_before, fmt_after, fmt_break_on_double)
+        VALUES(:signal, 0, :descr, :fmt_before, :fmt_after, :fmt_break_on_double)
+        ON CONFLICT(signal)
+        DO UPDATE SET
+            archived=0,
+            descr=:descr,
+            fmt_before=:fmt_before,
+            fmt_after=:fmt_after,
+            fmt_break_on_double=:fmt_break_on_double
+    )");
+    this->prepInsertIfDifferentTranslation = prepareStatement(this->dbConn, R"(
+        INSERT INTO user_translations(signal, revision, mtime_posix_ms, word)
+        SELECT :signal, COALESCE(MAX(revision) + 1, 0), :mtime, :word
+        FROM user_translations
+        WHERE signal=:signal
+        HAVING(
+            SELECT word
+            FROM user_translations
+            WHERE signal=:signal
+            ORDER BY revision DESC
+            LIMIT 1
+        ) IS NOT :word
     )");
     if(
-        !this->queryGetOrInsertServer.has_value() ||
-        !this->queryInsertAndGetSession.has_value() ||
-        !this->queryInsertWsMessage.has_value()
+        !this->prepGetSetting.has_value() ||
+        !this->prepUpsertSetting.has_value() ||
+        !this->prepGetOrInsertServer.has_value() ||
+        !this->prepInsertAndGetSession.has_value() ||
+        !this->prepInsertWsMessage.has_value() ||
+        !this->prepUpsertDictionary.has_value() ||
+        !this->prepInsertIfDifferentTranslation.has_value()
     ) {
         this->close();
         return false;
@@ -70,9 +109,13 @@ bool Database::open(const QString &path) {
 
 void Database::close() {
     // release prepared statements, then close connection
-    this->queryGetOrInsertServer = std::nullopt;
-    this->queryInsertAndGetSession = std::nullopt;
-    this->queryInsertWsMessage = std::nullopt;
+    this->prepGetSetting = std::nullopt;
+    this->prepUpsertSetting = std::nullopt;
+    this->prepGetOrInsertServer = std::nullopt;
+    this->prepInsertAndGetSession = std::nullopt;
+    this->prepInsertWsMessage = std::nullopt;
+    this->prepUpsertDictionary = std::nullopt;
+    this->prepInsertIfDifferentTranslation = std::nullopt;
     if(this->isOpen()) {
         this->dbConn.close();
     }
@@ -86,7 +129,6 @@ QSqlDatabase Database::getConn() const {
     return this->dbConn;
 }
 
-
 bool Database::scopedTransaction(const std::function<bool(Database &)> &fn) {
     if(!this->dbConn.transaction()) {
         return false;
@@ -98,6 +140,98 @@ bool Database::scopedTransaction(const std::function<bool(Database &)> &fn) {
         }
     } else {
         this->dbConn.rollback();
+        return false;
+    }
+    return true;
+}
+
+std::optional<QVariant> Database::queryGetSetting(const QString &key) {
+    this->prepGetSetting->bindValue(":key", key);
+    if(!this->prepGetSetting->exec() || !this->prepGetSetting->next()) {
+        this->prepGetSetting->finish();
+        return std::nullopt;
+    }
+    bool ok = false;
+    QVariant val = this->prepGetSetting->value(0);
+    this->prepGetSetting->finish();
+    return val;
+}
+
+bool Database::queryUpsertSetting(const QString &key, const QVariant &val) {
+    this->prepUpsertSetting->bindValue(":key", key);
+    this->prepUpsertSetting->bindValue(":val", val);
+    if(!this->prepUpsertSetting->exec()) {
+        return false;
+    }
+    return true;
+}
+
+std::optional<qint64> Database::queryGetOrInsertServer(const QUrl &url) {
+    this->prepGetOrInsertServer->bindValue(":host", url.host(QUrl::FullyEncoded));
+    this->prepGetOrInsertServer->bindValue(":port", url.port(url.scheme() == "wss" ? 443 : 80));
+    if(!this->prepGetOrInsertServer->exec() || !this->prepGetOrInsertServer->next()) {
+        this->prepGetOrInsertServer->finish();
+        return std::nullopt;
+    }
+    bool ok = false;
+    qint64 serverId = this->prepGetOrInsertServer->value(0).toLongLong(&ok);
+    this->prepGetOrInsertServer->finish();
+    if(ok) {
+        return serverId;
+    } else {
+        return std::nullopt;
+    }
+}
+
+std::optional<qint64> Database::queryInsertAndGetSession(qint64 serverId, const QDateTime &time) {
+    this->prepInsertAndGetSession->bindValue(":server_id", serverId);
+    this->prepInsertAndGetSession->bindValue(":connect_posix_ms", time.toMSecsSinceEpoch());
+    if(!this->prepInsertAndGetSession->exec() || !this->prepInsertAndGetSession->next()) {
+        this->prepInsertAndGetSession->finish();
+        return std::nullopt;
+    }
+    bool ok = false;
+    qint64 sessionId = this->prepInsertAndGetSession->value(0).toLongLong(&ok);
+    this->prepInsertAndGetSession->finish();
+    if(ok) {
+        return sessionId;
+    } else {
+        return std::nullopt;
+    }
+}
+
+bool Database::queryInsertWsMessage(qint64 sessionId, const QDateTime &time, const QString &text, int direction) {
+    this->prepInsertWsMessage->bindValue(":session_id", sessionId);
+    this->prepInsertWsMessage->bindValue(":time_posix_ms", time.toMSecsSinceEpoch());
+    this->prepInsertWsMessage->bindValue(":direction", direction);
+    this->prepInsertWsMessage->bindValue(":kind", 0); // WsText
+    this->prepInsertWsMessage->bindValue(":msg", text);
+    if(!this->prepInsertWsMessage->exec()) {
+        this->prepInsertWsMessage->finish();
+        return false;
+    }
+    return true;
+}
+
+bool Database::queryUpsertDictionary(qint64 signal, const QString &descr, int fmtBefore, int fmtAfter, bool breakOnDouble) {
+    this->prepUpsertDictionary->bindValue(":signal", signal);
+    this->prepUpsertDictionary->bindValue(":descr", descr);
+    this->prepUpsertDictionary->bindValue(":fmt_before", fmtBefore);
+    this->prepUpsertDictionary->bindValue(":fmt_after", fmtAfter);
+    this->prepUpsertDictionary->bindValue(":fmt_break_on_double", breakOnDouble ? 1 : 0);
+    if(!this->prepUpsertDictionary->exec()) {
+        this->prepUpsertDictionary->finish();
+        return false;
+    }
+    return true;
+}
+
+bool Database::queryInsertIfDifferentTranslation(qint64 signal, const QDateTime &time, const QString &word) {
+    this->prepInsertIfDifferentTranslation->bindValue(":signal", signal);
+    this->prepInsertIfDifferentTranslation->bindValue(":mtime", time.toMSecsSinceEpoch());
+    this->prepInsertIfDifferentTranslation->bindValue(":word", word);
+    if(!this->prepInsertIfDifferentTranslation->exec()) {
+        this->prepInsertIfDifferentTranslation->finish();
         return false;
     }
     return true;

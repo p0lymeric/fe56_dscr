@@ -98,7 +98,16 @@ impl DictionaryMut for ShadowDictionary {
     }
 
     fn remove(&mut self, id: SymbolT) -> bool {
-        todo!()
+        use std::collections::btree_map::Entry;
+        if let Entry::Occupied(entry) = self.defs.entry(id) {
+            let def = entry.remove();
+            self.trie_exact.delete(id, &def.def.word);
+            self.trie_casefold.delete(id, &def.word_casefold);
+
+            return true;
+        }
+
+        false
     }
 
     fn relink(&mut self, from: SymbolT, to: SymbolT) -> bool {
@@ -106,14 +115,6 @@ impl DictionaryMut for ShadowDictionary {
     }
 
     fn edit(&mut self, id: SymbolT, f: &mut dyn FnMut(&mut Definition)) -> bool {
-        // if let Some(def) = self.defs.get_mut(&id) {
-        //     f(&mut def.def);
-        //     // TODO modify in trie
-        //     def.word_casefold = case::to_casefolded_full(&def.def.word);
-        //     return true;
-        // }
-
-        // false
         todo!()
     }
 

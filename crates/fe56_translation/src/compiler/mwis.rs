@@ -6,14 +6,15 @@ use std::ops::Add;
 // similar to https://en.wikipedia.org/wiki/Interval_scheduling#Weighted
 // polymeric 2026
 
-// [0-9]
+// [0-9]+
 // |-?[0-9]+
 #[derive(Debug, Clone, Copy)]
 enum SpecialTokenDfa {
     Inactive,
     Bar { start: usize },
     BarMinus { start: usize },
-    BarDigit { start: usize },
+    BarDigitRun { start: usize },
+    DigitRun { start: usize },
 }
 
 impl SpecialTokenDfa {
@@ -22,9 +23,7 @@ impl SpecialTokenDfa {
             SpecialTokenDfa::Inactive => {
                 match c {
                     '|' => *self = SpecialTokenDfa::Bar { start: pos },
-                    '0'..='9' => {
-                        Self::push_numeral(token_candidates, pos, c);
-                    },
+                    '0'..='9' => *self = SpecialTokenDfa::DigitRun { start: pos },
                     _ => {}
                 }
             },
@@ -32,26 +31,42 @@ impl SpecialTokenDfa {
                 match c {
                     '|' => *self = SpecialTokenDfa::Bar { start: pos },
                     '-' => *self = SpecialTokenDfa::BarMinus { start: *start },
-                    '0'..='9' => *self = SpecialTokenDfa::BarDigit { start: *start },
+                    '0'..='9' => *self = SpecialTokenDfa::BarDigitRun { start: *start },
                     _ => *self = SpecialTokenDfa::Inactive
                 }
             },
             SpecialTokenDfa::BarMinus { start } => {
                 match c {
                     '|' => *self = SpecialTokenDfa::Bar { start: pos },
-                    '0'..='9' => *self = SpecialTokenDfa::BarDigit { start: *start },
+                    '0'..='9' => *self = SpecialTokenDfa::BarDigitRun { start: *start },
                     _ => *self = SpecialTokenDfa::Inactive
                 }
             },
-            SpecialTokenDfa::BarDigit { start } => {
+            SpecialTokenDfa::BarDigitRun { start } => {
                 match c {
-                    '0'..='9' => {},
                     '|' => {
                         Self::push_bare_id(input, token_candidates, *start, pos);
                         *self = SpecialTokenDfa::Bar { start: pos };
                     },
+                    '0'..='9' => {},
                     _ => {
                         Self::push_bare_id(input, token_candidates, *start, pos);
+                        *self = SpecialTokenDfa::Inactive;
+                    }
+                }
+            },
+            SpecialTokenDfa::DigitRun { start } => {
+                match c {
+                    '|' => {
+                        Self::push_number(input, token_candidates, *start, pos);
+                        *self = SpecialTokenDfa::Bar { start: pos };
+                    },
+                    '0'..='9' => {
+                        // For DSCR we collect all digits in a run into one integer
+                        // To match the original game we'd instead yield a single base 10 digit here
+                    },
+                    _ => {
+                        Self::push_number(input, token_candidates, *start, pos);
                         *self = SpecialTokenDfa::Inactive;
                     }
                 }
@@ -61,8 +76,11 @@ impl SpecialTokenDfa {
 
     fn terminate(&mut self, input: &str, token_candidates: &mut Vec<dictionary::TokenizeResult>) {
         match self {
-            SpecialTokenDfa::BarDigit { start } => {
+            SpecialTokenDfa::BarDigitRun { start } => {
                 Self::push_bare_id(input, token_candidates, *start, input.len());
+            },
+            SpecialTokenDfa::DigitRun { start } => {
+                Self::push_number(input, token_candidates, *start, input.len());
             },
             _ => {},
         }
@@ -85,12 +103,18 @@ impl SpecialTokenDfa {
         }
     }
 
-    fn push_numeral(token_candidates: &mut Vec<dictionary::TokenizeResult>, pos: usize, c: char) {
-        if let Some(id_u32) = c.to_digit(10) && let Ok(id) = id_u32.try_into() {
+    fn push_number(input: &str, token_candidates: &mut Vec<dictionary::TokenizeResult>, start: usize, pos: usize) {
+        if let Ok(id) = input[start..pos].parse() {
             token_candidates.push(dictionary::TokenizeResult {
-                kind: dictionary::TokenizeResultKind::Numeral,
+                kind: dictionary::TokenizeResultKind::Number,
                 id,
-                span: (pos..pos + 1).into()
+                span: (start..pos).into()
+            });
+        } else {
+            token_candidates.push(dictionary::TokenizeResult {
+                kind: dictionary::TokenizeResultKind::NumberBig,
+                id: 0,
+                span: (start..pos).into()
             });
         }
     }
@@ -102,9 +126,6 @@ fn get_token_candidates(dictionary: &dyn dictionary::Dictionary, input: &str) ->
     let mut special_matcher = SpecialTokenDfa::Inactive;
     for (pos, c) in input.char_indices() {
         // Prepend special matches. They are weighted with different priority than words, so we don't need to insort.
-        // ...but we do have a nasty ordering dependency with the end index.
-        // Bare IDs end at pos (end of the previous character).
-        // Digits end at pos + c.len_utf8().
         special_matcher.advance(input, &mut token_candidates, pos, c);
 
         let out_start = token_candidates.len();
@@ -265,7 +286,7 @@ impl Symbolizer for MwisSymbolizer {
                             // digits: 0
                         }
                     },
-                    dictionary::TokenizeResultKind::Numeral => {
+                    dictionary::TokenizeResultKind::Number | dictionary::TokenizeResultKind::NumberBig => {
                         MwisWeight {
                             non_whitespace_bytes,
                             bare_ids: 0,
@@ -456,7 +477,7 @@ impl Symbolizer for MwisSymbolizer {
             let maybe_ambiguous_trace = ambiguous_traces_outstanding.pop();
 
             match tk.kind {
-                dictionary::TokenizeResultKind::BareIdBig => {
+                dictionary::TokenizeResultKind::NumberBig | dictionary::TokenizeResultKind::BareIdBig => {
                     errors.push(SymbolizerError {
                         kind: SymbolizerErrorKind::OutOfNativeIntBounds,
                         span,

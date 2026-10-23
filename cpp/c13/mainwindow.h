@@ -6,6 +6,7 @@
 
 #include <optional>
 #include <QMainWindow>
+#include <QStringListModel>
 
 namespace Ui {
 class MainWindow;
@@ -28,8 +29,9 @@ private slots:
 
 private:
     Ui::MainWindow *ui;
-    Fe56JsonDictionary *dictionary;
+    Fe56ShadowDictionary *dictionary;
     DscrClient dscrClient;
     Database database;
     std::optional<qint64> sessionId;
+    QStringListModel usersModel;
 };
