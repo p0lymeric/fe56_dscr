@@ -27,11 +27,17 @@ target_link_libraries(c13
         Qt::Sql
 )
 
-# TODO integrate with Cargo or port symbolizer to C++
-set(RUST_TARGET_PATH ${CMAKE_CURRENT_SOURCE_DIR}/../../rust/target)
+# TODO probably port symbolizer to C++
+if(NOT DEFINED RUST_TARGET_PATH)
+    target_link_directories(c13 PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/../../rust/target/$<IF:$<CONFIG:Debug>,debug,release>")
+else()
+    target_link_directories(c13 PRIVATE "${RUST_TARGET_PATH}")
+endif()
 
-target_link_directories(c13 PRIVATE "${RUST_TARGET_PATH}/$<IF:$<CONFIG:Debug>,debug,release>")
-target_link_libraries(c13 PRIVATE fe56 kernel32 ntdll userenv ws2_32 dbghelp)
+target_link_libraries(c13 PRIVATE fe56)
+if(WIN32)
+    target_link_libraries(c13 PRIVATE kernel32 ntdll userenv ws2_32 dbghelp)
+endif()
 target_include_directories(c13 PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../../rust/crates/fe56_capi/include)
 
 install(TARGETS c13

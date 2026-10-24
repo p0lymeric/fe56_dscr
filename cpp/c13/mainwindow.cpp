@@ -18,8 +18,6 @@ MainWindow::MainWindow(QWidget *parent) :
     ui(new Ui::MainWindow)
 {
     this->ui->setupUi(this);
-    this->ui->usersList->setModel(&this->usersModel);
-    this->ui->usersList->setEditTriggers(QAbstractItemView::NoEditTriggers);
 
     QObject::connect(this->ui->messageEditor, &QTextEdit::textChanged, this, &MainWindow::onMessageEditorTextChanged);
     QObject::connect(&this->dscrClient, &DscrClient::connected, this, &MainWindow::onDscrClientConnected);
@@ -29,6 +27,34 @@ MainWindow::MainWindow(QWidget *parent) :
     QObject::connect(&this->dscrClient, &DscrClient::textMessageReceived, this, &MainWindow::onDscrClientTextMessageReceived);
 
     this->database.open(QDir(QCoreApplication::applicationDirPath()).filePath("c13.sqlite3"));
+
+    this->ui->usersList->setModel(&this->usersModel);
+    this->ui->usersList->setEditTriggers(QAbstractItemView::NoEditTriggers);
+
+    this->dictionaryModel.setQuery(R"(
+        SELECT d.signal, t.word
+        FROM user_dictionary AS d
+        LEFT JOIN user_translations as t
+        ON d.signal=t.signal
+        AND t.revision=(
+            SELECT MAX(revision)
+            FROM user_translations
+            WHERE signal=d.signal
+        )
+        WHERE d.archived=0
+        ORDER BY d.signal DESC
+    )", this->database.getConn());
+    this->dictionaryModel.setHeaderData(0, Qt::Horizontal, "SIGNAL");
+    this->dictionaryModel.setHeaderData(1, Qt::Horizontal, "WORD");
+    this->ui->dictionaryTable->setModel(&this->dictionaryModel);
+    this->ui->dictionaryTable->setSelectionBehavior(QAbstractItemView::SelectRows);
+    this->ui->dictionaryTable->setSelectionMode(QAbstractItemView::SingleSelection);
+    this->ui->dictionaryTable->setEditTriggers(QAbstractItemView::DoubleClicked);
+    this->ui->dictionaryTable->verticalHeader()->hide();
+    // this->ui->dictionaryTable->horizontalHeader()->hide();
+    // this->ui->dictionaryTable->horizontalHeader()->setSectionResizeMode(0, QHeaderView::Stretch);
+    // this->ui->dictionaryTable->horizontalHeader()->setSectionResizeMode(1, QHeaderView::Stretch);
+    this->ui->dictionaryTable->horizontalHeader()->setStretchLastSection(true);
 
     QFile dict("C:\\Games\\TMDSDecomp\\save\\DICTIONARY-1.save");
     if (dict.open(QIODevice::ReadOnly)) {
@@ -100,7 +126,7 @@ MainWindow::MainWindow(QWidget *parent) :
             WHERE signal=d.signal
         )
         WHERE d.archived=0
-        ORDER BY d.signal
+        ORDER BY d.signal DESC
     )");
 
     while(query.next()) {
@@ -201,11 +227,16 @@ void MainWindow::onDscrClientDscrMessageReceived(const QDateTime &time, qint64 f
     messageBlockFormat.setLeftMargin(sequenceWidth);
 
     QTextCharFormat sequenceFormat;
-    sequenceFormat.setForeground(Qt::gray);
+    QBrush brush(QColor(41, 199, 227), Qt::SolidPattern);
+    sequenceFormat.setForeground(brush);
     sequenceFormat.setToolTip(QLocale().toString(time.toLocalTime(), QLocale::LongFormat));
     QTextCharFormat callsignFormat;
+    QBrush brush2(QColor(196, 147, 0), Qt::SolidPattern);
+    callsignFormat.setForeground(brush2);
     callsignFormat.setFontWeight(QFont::Bold);
+    // QBrush brush3(QColor(202, 69, 209), Qt::SolidPattern);
     QTextCharFormat messageFormat;
+    // messageFormat.setForeground(brush3);
 
     QTextCursor cur(this->ui->chatBrowser->document());
     cur.movePosition(QTextCursor::End);

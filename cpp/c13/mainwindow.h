@@ -7,6 +7,7 @@
 #include <optional>
 #include <QMainWindow>
 #include <QStringListModel>
+#include <QSqlQueryModel>
 
 namespace Ui {
 class MainWindow;
@@ -34,4 +35,5 @@ private:
     Database database;
     std::optional<qint64> sessionId;
     QStringListModel usersModel;
+    QSqlQueryModel dictionaryModel;
 };
