@@ -1,0 +1,31 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "C13 (Debug) - cppvsdbg",
+            "type": "cppvsdbg",
+            "request": "launch",
+            "preLaunchTask": "Build C13 (Debug)",
+            "program": "${workspaceFolder}/target/Windows-MSVC-x64-Debug-MD/install/bin/c13.exe",
+            "args": [],
+            "cwd": "${workspaceFolder}/target/Windows-MSVC-x64-Debug-MD/install/bin"
+        },
+        {
+            "name": "C13 (Debug) - lldb",
+            "type": "lldb",
+            "request": "launch",
+            "preLaunchTask": "Build C13 (Debug)",
+            "program": "${workspaceFolder}/target/Windows-MSVC-x64-Debug-MD/install/bin/c13.exe",
+            "args": [],
+            "cwd": "${workspaceFolder}/target/Windows-MSVC-x64-Debug-MD/install/bin",
+            "osx": {
+                "program": "${workspaceFolder}/target/macOS-AppleClang-Native-Debug-Dyn/build/c13.app/Contents/MacOS/c13",
+                "args": [],
+                "cwd": "${workspaceFolder}/target/macOS-AppleClang-Native-Debug-Dyn/build/c13.app/Contents/MacOS"
+            }
+        }
+    ]
+}

@@ -6,6 +6,8 @@ rem This produces a single executable that only links to OS dlls, at the expense
 rem A custom Qt build is required, configured with these flags:
 rem     configure.bat -static -static-runtime -release -submodules qtbase,qtwebsockets
 
+call "C:\Program Files\Microsoft Visual Studio\18\Community\VC\Auxiliary\Build\vcvars64.bat"
+
 rem Used by cmake to locate Qt6
 set "Qt6_ROOT=C:\Qt-custom\6.12.0\msvc2026_64_static_MT"
 set "RUST_TARGET_PATH=%CD%\target\Windows-MSVC-x64-Release-MT\target\release"
@@ -15,16 +17,20 @@ mkdir target
 pushd rust
 rem fe56.lib does not appear to link with the VC runtime, but we set +crt-static in case it ever does
 set "RUSTFLAGS=-C target-feature=+crt-static"
-cargo build -p fe56_capi --release --target-dir ..\target\Windows-MSVC-x64-Release-MT\target
+cargo build -p fe56_capi --release --target-dir ..\target\Windows-MSVC-x64-Release-MT\target || goto :FAIL
 popd
 
 pushd cpp\c13
-cmake -S . -B ..\..\target\Windows-MSVC-x64-Release-MT\build -A x64 -DRUST_TARGET_PATH="%RUST_TARGET_PATH%"
+cmake -S . -B ..\..\target\Windows-MSVC-x64-Release-MT\build -G Ninja -DCMAKE_BUILD_TYPE=Release -DRUST_TARGET_PATH="%RUST_TARGET_PATH%" || goto :FAIL
 popd
 
 pushd target\Windows-MSVC-x64-Release-MT\build
-cmake --build . --config Release --parallel
-cmake --install . --config Release --prefix ..\install
+cmake --build . --parallel || goto :FAIL
+cmake --install . --prefix ..\install || goto :FAIL
 popd
 
-pause
+exit /b 0
+
+:FAIL
+set "ERRORLEVELBAK=%ERRORLEVEL%"
+exit /b %ERRORLEVELBAK%
