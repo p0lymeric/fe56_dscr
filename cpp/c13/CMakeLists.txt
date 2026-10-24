@@ -11,11 +11,18 @@ qt_standard_project_setup()
 qt_add_executable(c13
     WIN32 MACOSX_BUNDLE
     main.cpp
-    mainwindow.h mainwindow.cpp mainwindow.ui
+    maincore.h maincore.cpp
+    assets/assets.qrc
+
     dscrclient.h dscrclient.cpp
-    database.h database.cpp
+
+    database/database.h database/database.cpp
+    database/dictionary.h database/dictionary.cpp
+    database/settings.h database/settings.cpp
+    database/wsmessagelog.h database/wsmessagelog.cpp
+
+    mainwindow.h mainwindow.cpp mainwindow.ui
     serverconnectdialog.h serverconnectdialog.cpp serverconnectdialog.ui
-    assets.qrc
 
 )
 
@@ -25,6 +32,11 @@ target_link_libraries(c13
         Qt::Widgets
         Qt::WebSockets
         Qt::Sql
+)
+
+target_include_directories(c13
+    PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}
 )
 
 # TODO probably port symbolizer to C++

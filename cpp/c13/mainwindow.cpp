@@ -21,23 +21,36 @@ enum UserTextFormatProperty {
     SignalIdqint64,
 };
 
-MainWindow::MainWindow(QWidget *parent) :
+MainWindow::MainWindow(MainCore *core, QWidget *parent) :
     QMainWindow(parent),
-    ui(new Ui::MainWindow)
+    ui(new Ui::MainWindow),
+    core(core)
 {
     this->ui->setupUi(this);
 
     QObject::connect(this->ui->messageEditor, &QTextEdit::textChanged, this, &MainWindow::onMessageEditorTextChanged);
-    QObject::connect(&this->dscrClient, &DscrClient::connected, this, &MainWindow::onDscrClientConnected);
-    QObject::connect(&this->dscrClient, &DscrClient::dscrMessageReceived, this, &MainWindow::onDscrClientDscrMessageReceived);
-    QObject::connect(&this->dscrClient, &DscrClient::callSignsChanged, this, &MainWindow::onDscrClientCallSignsChanged);
-    QObject::connect(&this->dscrClient, &DscrClient::textMessageSent, this, &MainWindow::onDscrClientTextMessageSent);
-    QObject::connect(&this->dscrClient, &DscrClient::textMessageReceived, this, &MainWindow::onDscrClientTextMessageReceived);
-
-    this->database.open(QDir(QCoreApplication::applicationDirPath()).filePath("c13.sqlite3"));
+    QObject::connect(&this->core->dscrClient, &DscrClient::dscrMessageReceived, this, &MainWindow::onDscrClientDscrMessageReceived);
+    QObject::connect(&this->core->dscrClient, &DscrClient::callSignsChanged, this, &MainWindow::onDscrClientCallSignsChanged);
 
     this->ui->usersList->setModel(&this->usersModel);
     this->ui->usersList->setEditTriggers(QAbstractItemView::NoEditTriggers);
+
+    this->ui->dictionaryTable->setModel(&this->dictionaryModel);
+    this->ui->dictionaryTable->setSelectionBehavior(QAbstractItemView::SelectRows);
+    this->ui->dictionaryTable->setSelectionMode(QAbstractItemView::SingleSelection);
+    this->ui->dictionaryTable->setEditTriggers(QAbstractItemView::DoubleClicked);
+    this->ui->dictionaryTable->verticalHeader()->hide();
+    // this->ui->dictionaryTable->horizontalHeader()->hide();
+    // this->ui->dictionaryTable->horizontalHeader()->setSectionResizeMode(0, QHeaderView::Stretch);
+    // this->ui->dictionaryTable->horizontalHeader()->setSectionResizeMode(1, QHeaderView::Stretch);
+    this->ui->dictionaryTable->horizontalHeader()->setStretchLastSection(true);
+
+    this->ui->chatBrowser->viewport()->setMouseTracking(true);
+    this->ui->chatBrowser->viewport()->installEventFilter(this);
+    this->ui->messageEditor->viewport()->setMouseTracking(true);
+    this->ui->messageEditor->viewport()->installEventFilter(this);
+    this->instantMouseoverToolTip.setWindowFlags(Qt::ToolTip);
+    this->instantMouseoverToolTip.setAttribute(Qt::WA_TransparentForMouseEvents);
 
     this->dictionaryModel.setQuery(R"(
         SELECT d.signal, t.word
@@ -51,126 +64,15 @@ MainWindow::MainWindow(QWidget *parent) :
         )
         WHERE d.archived=0
         ORDER BY d.signal DESC
-    )", this->database.getConn());
+    )", this->core->database.getConn());
     this->dictionaryModel.setHeaderData(0, Qt::Horizontal, "SIGNAL");
     this->dictionaryModel.setHeaderData(1, Qt::Horizontal, "WORD");
-    this->ui->dictionaryTable->setModel(&this->dictionaryModel);
-    this->ui->dictionaryTable->setSelectionBehavior(QAbstractItemView::SelectRows);
-    this->ui->dictionaryTable->setSelectionMode(QAbstractItemView::SingleSelection);
-    this->ui->dictionaryTable->setEditTriggers(QAbstractItemView::DoubleClicked);
-    this->ui->dictionaryTable->verticalHeader()->hide();
-    // this->ui->dictionaryTable->horizontalHeader()->hide();
-    // this->ui->dictionaryTable->horizontalHeader()->setSectionResizeMode(0, QHeaderView::Stretch);
-    // this->ui->dictionaryTable->horizontalHeader()->setSectionResizeMode(1, QHeaderView::Stretch);
-    this->ui->dictionaryTable->horizontalHeader()->setStretchLastSection(true);
+    this->core->dscrClient.register_(this->core->settings.get("dscrClient.callsign", 01444).toLongLong(), false);
+    this->core->dscrClient.open(QUrl(this->core->settings.get("dscrClient.url", "wss://dscr-relay.dixonary.co.uk").toString()));
+}
 
-    QFile dict("C:\\Games\\TMDSDecomp\\save\\DICTIONARY-1.save");
-    if (dict.open(QIODevice::ReadOnly)) {
-        QDateTime importTime = QDateTime::currentDateTime();
-        QJsonDocument json = QJsonDocument::fromJson(dict.readAll());
-
-        // FIXME replace magic numbers with enum level
-        qint64 beforeUserDefaultMode = json["beforeUserDefaultMode"].toInteger(1);
-        qint64 afterUserDefaultMode = json["afterUserDefaultMode"].toInteger(2);
-
-        QHash<qint64, QJsonObject> descMap;
-        QJsonArray dDK = json["descDict"]["keys"].toArray();
-        QJsonArray dDV = json["descDict"]["values"].toArray();
-        for(qsizetype i = 0; i < std::min(dDK.size(), dDV.size()); i++) {
-            QJsonValue dDKi = dDK[i];
-            QJsonValue dDVi = dDV[i];
-            if(dDKi.isDouble() && dDVi.isObject()) {
-                descMap[dDKi.toInteger()] = dDVi.toObject();
-            }
-        }
-
-        database.scopedTransaction([&](Database &db) {
-            if(!database.queryUpsertSetting("dictionary.beforeUserDefaultMode", beforeUserDefaultMode)) {
-                return false;
-            }
-            if(!database.queryUpsertSetting("dictionary.afterUserDefaultMode", afterUserDefaultMode)) {
-                return false;
-            }
-
-            QJsonArray wDK = json["wordDict"]["keys"].toArray();
-            QJsonArray wDV = json["wordDict"]["values"].toArray();
-            for(qsizetype i = 0; i < std::min(wDK.size(), wDV.size()); i++) {
-                QJsonValue wDKi = wDK[i];
-                QJsonValue wDVi = wDV[i];
-                if(wDKi.isDouble() && wDVi.isString()) {
-                    qint64 id = wDKi.toInteger();
-                    QString word = wDVi.toString();
-                    QJsonObject dDKi = descMap[id];;
-                    database.queryUpsertDictionary(
-                        id,
-                        dDKi["desc"].toString("??? ADD NOTES HERE ???"),
-                        dDKi["formatMode"].toInteger(beforeUserDefaultMode),
-                        dDKi["formatModeAfter"].toInteger(afterUserDefaultMode),
-                        dDKi["breakOnDouble"].toBool(false)
-                    );
-                    database.queryInsertIfDifferentTranslation(id, importTime, word);
-                }
-            }
-
-            return true;
-        });
-
-    } else {
-    }
-
-    this->dictionary = fe56_dictionary_new();
-    QSqlQuery query(database.getConn());
-    // INNER JOIN to exclude dictionary entries without translations
-    // LEFT JOIN to include dictionary entries without translations
-    // SELECT d.signal, t.word, t.revision, d.descr, d.fmt_before, d.fmt_after, d.fmt_break_on_double
-    query.exec(R"(
-        SELECT d.signal, t.word, d.fmt_before, d.fmt_after, d.fmt_break_on_double
-        FROM user_dictionary AS d
-        JOIN user_translations as t
-        ON d.signal=t.signal
-        AND t.revision=(
-            SELECT MAX(revision)
-            FROM user_translations
-            WHERE signal=d.signal
-        )
-        WHERE d.archived=0
-        ORDER BY d.signal DESC
-    )");
-
-    while(query.next()) {
-        qint64 id = query.value(0).toLongLong();
-        const QByteArray word = query.value(1).toString().toUtf8();
-        int fmtBefore = query.value(2).toInt();
-        int fmtAfter = query.value(3).toInt();
-        int breakOnDouble = query.value(4).toInt();
-        Fe56Formatting formatting {
-            static_cast<Fe56SpacingKind>(fmtBefore),
-            static_cast<Fe56SpacingKind>(fmtAfter),
-            breakOnDouble != 0,
-        };
-        fe56_dictionary_add(this->dictionary, id, reinterpret_cast<const uint8_t*>(word.data()), word.size(), formatting);
-    }
-
-    query.finish();
-
-    fe56_dictionary_set_global_format(this->dictionary, Fe56Formatting {
-        static_cast<Fe56SpacingKind>(database.queryGetSetting("dictionary.beforeUserDefaultMode").value_or(QVariant(1)).toInt()),
-        static_cast<Fe56SpacingKind>(database.queryGetSetting("dictionary.afterUserDefaultMode").value_or(QVariant(2)).toInt()),
-        false,
-    });
-
-    this->database.queryUpsertSetting("dscrClient.callsign", 01444);
-    this->database.queryUpsertSetting("dscrClient.url", "wss://dscr-relay.dixonary.co.uk");
-
-    dscrClient.register_(this->database.queryGetSetting("dscrClient.callsign").value_or(01444).toLongLong(), false);
-    dscrClient.open(QUrl(this->database.queryGetSetting("dscrClient.url").value_or("wss://dscr-relay.dixonary.co.uk").toString()));
-    // ui->chatBrowser->setFont(QFont("B612 Mono", 12));
-    this->ui->chatBrowser->viewport()->setMouseTracking(true);
-    this->ui->chatBrowser->viewport()->installEventFilter(this);
-    this->ui->messageEditor->viewport()->setMouseTracking(true);
-    this->ui->messageEditor->viewport()->installEventFilter(this);
-    this->instantMouseoverToolTip.setWindowFlags(Qt::ToolTip);
-    this->instantMouseoverToolTip.setAttribute(Qt::WA_TransparentForMouseEvents);
+MainWindow::~MainWindow() {
+    delete ui;
 }
 
 bool MainWindow::eventFilter(QObject *watched, QEvent *event) {
@@ -252,7 +154,7 @@ void MainWindow::onMessageEditorTextChanged() {
     const QByteArray textUtf8 = text.toUtf8();
 
     // FIXME Fe56 returns results in UTF-8 coordinates but QString is UTF-16...
-    Fe56RVec_SymbolizerTrace traces = fe56_mwis_symbolize(this->dictionary, reinterpret_cast<const uint8_t *>(textUtf8.constData()), textUtf8.size());
+    Fe56RVec_SymbolizerTrace traces = fe56_mwis_symbolize(this->core->dictionary.dictionary, reinterpret_cast<const uint8_t *>(textUtf8.constData()), textUtf8.size());
 
     QString signalVizText;
 
@@ -336,7 +238,7 @@ void MainWindow::onDscrClientDscrMessageReceived(const QDateTime &time, qint64 f
     cur.insertText(QString::number(from, 8).rightJustified(4, '0'), callsignFormat);
 
     cur.insertBlock(messageBlockFormat);
-    Fe56RDesymbolized desym = fe56_reformatter_desymbolize(this->dictionary, symbols.constData(), symbols.size());
+    Fe56RDesymbolized desym = fe56_reformatter_desymbolize(this->core->dictionary.dictionary, symbols.constData(), symbols.size());
     QString str = QString::fromUtf8(QByteArrayView(desym.text.ptr, desym.text.size));
     int positionOffset = cur.position();
     cur.insertText(str, messageFormat);
@@ -360,49 +262,4 @@ void MainWindow::onDscrClientCallSignsChanged(const QDateTime &time, const QVect
     }
     users.sort();
     this->usersModel.setStringList(users);
-}
-
-void MainWindow::onDscrClientConnected(const QDateTime &time, const QUrl &url) {
-    this->sessionId = std::nullopt;
-
-    this->database.scopedTransaction([&](Database &db) {
-        std::optional<qint64> serverId = db.queryGetOrInsertServer(url);
-        if(!serverId.has_value()) {
-            return false;
-        }
-
-        std::optional<qint64> sessionId = db.queryInsertAndGetSession(serverId.value(), time);
-        if(!sessionId.has_value()) {
-            return false;
-        }
-
-        this->sessionId = sessionId.value();
-
-        return true;
-    });
-}
-
-void MainWindow::onDscrClientTextMessageSent(const QDateTime &time, const QString &text) {
-    if(!this->sessionId.has_value()) {
-        return;
-    }
-    this->database.scopedTransaction([&](Database &db) {
-        db.queryInsertWsMessage(this->sessionId.value(), time, text, 1);
-        return true;
-    });
-}
-
-void MainWindow::onDscrClientTextMessageReceived(const QDateTime &time, const QString &text) {
-    if(!this->sessionId.has_value()) {
-        return;
-    }
-    this->database.scopedTransaction([&](Database &db) {
-        db.queryInsertWsMessage(this->sessionId.value(), time, text, 0);
-        return true;
-    });
-}
-
-MainWindow::~MainWindow() {
-    fe56_dictionary_free(this->dictionary);
-    delete ui;
 }

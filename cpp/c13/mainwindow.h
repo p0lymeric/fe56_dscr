@@ -1,10 +1,7 @@
 #pragma once
 
-#include "database.h"
-#include "dscrclient.h"
-#include "fe56.h"
+#include "maincore.h"
 
-#include <optional>
 #include <QLabel>
 #include <QMainWindow>
 #include <QStringListModel>
@@ -18,7 +15,7 @@ class MainWindow : public QMainWindow {
     Q_OBJECT
 
 public:
-    explicit MainWindow(QWidget *parent = nullptr);
+    explicit MainWindow(MainCore *core, QWidget *parent = nullptr);
     ~MainWindow();
 
 protected:
@@ -26,18 +23,13 @@ protected:
 
 private slots:
     void onMessageEditorTextChanged();
-    void onDscrClientConnected(const QDateTime &time, const QUrl &url);
     void onDscrClientDscrMessageReceived(const QDateTime &time, qint64 from, qint64 sequenceNum, const QVector<qint64> &symbols);
     void onDscrClientCallSignsChanged(const QDateTime &time, const QVector<qint64> &callSigns);
-    void onDscrClientTextMessageSent(const QDateTime &time, const QString &text);
-    void onDscrClientTextMessageReceived(const QDateTime &time, const QString &text);
+
 
 private:
     Ui::MainWindow *ui;
-    Fe56ShadowDictionary *dictionary;
-    DscrClient dscrClient;
-    Database database;
-    std::optional<qint64> sessionId;
+    MainCore *core;
     QStringListModel usersModel;
     QSqlQueryModel dictionaryModel;
     QLabel instantMouseoverToolTip;

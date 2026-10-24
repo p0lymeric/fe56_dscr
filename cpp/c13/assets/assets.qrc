@@ -1,0 +1,17 @@
+<RCC>
+    <qresource prefix="/fonts/B612">
+        <file alias="B612-Bold.ttf">fonts/B612/B612-Bold.ttf</file>
+        <file alias="B612-BoldItalic.ttf">fonts/B612/B612-BoldItalic.ttf</file>
+        <file alias="B612-Italic.ttf">fonts/B612/B612-Italic.ttf</file>
+        <file alias="B612-Regular.ttf">fonts/B612/B612-Regular.ttf</file>
+    </qresource>
+    <qresource prefix="/fonts/B612_Mono">
+        <file alias="B612Mono-Bold.ttf">fonts/B612_Mono/B612Mono-Bold.ttf</file>
+        <file alias="B612Mono-BoldItalic.ttf">fonts/B612_Mono/B612Mono-BoldItalic.ttf</file>
+        <file alias="B612Mono-Italic.ttf">fonts/B612_Mono/B612Mono-Italic.ttf</file>
+        <file alias="B612Mono-Regular.ttf">fonts/B612_Mono/B612Mono-Regular.ttf</file>
+    </qresource>
+    <qresource prefix="/sql">
+        <file alias="init.sql">sql/init.sql</file>
+    </qresource>
+</RCC>
