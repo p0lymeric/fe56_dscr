@@ -33,7 +33,7 @@ int main(int argc, char *argv[]) {
         QSplitter::handle:pressed { background: #0CED45; }
     )");
     loadFonts();
-    QApplication::setFont(QFont("B612", 12));
+    QApplication::setFont(QFont("B612 Mono", 12));
     MainWindow w;
     w.show();
     return QApplication::exec();

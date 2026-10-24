@@ -5,6 +5,7 @@
 #include "fe56.h"
 
 #include <optional>
+#include <QLabel>
 #include <QMainWindow>
 #include <QStringListModel>
 #include <QSqlQueryModel>
@@ -19,6 +20,9 @@ class MainWindow : public QMainWindow {
 public:
     explicit MainWindow(QWidget *parent = nullptr);
     ~MainWindow();
+
+protected:
+    bool eventFilter(QObject *watched, QEvent *event) override;
 
 private slots:
     void onMessageEditorTextChanged();
@@ -36,4 +40,5 @@ private:
     std::optional<qint64> sessionId;
     QStringListModel usersModel;
     QSqlQueryModel dictionaryModel;
+    QLabel instantMouseoverToolTip;
 };
