@@ -42,13 +42,17 @@ public:
     const Definition &getDefinitionFlat(qsizetype flatIdx) const;
 
     bool relink(qint64 signal, qint64 signalTo);
-    bool rename(qint64 signal, QString word);
+    bool rename(qint64 signal, const QString &word);
+    bool add(qint64 signal);
 
     // FIXME privatize (need to provide Symbolizer and Desymbolizer)
     Fe56ShadowDictionary *fe56Dictionary;
 
 signals:
-    void dataChanged(int flatIdx); // For DictionaryTableModel
+    // For DictionaryTableModel
+    void dataChanged(qsizetype flatIdxStart, qsizetype flatIdxEndIncl);
+    void beginInsertRows(qsizetype flatIdxStart, qsizetype flatIdxEndIncl);
+    void endInsertRows();
 
 private:
     Database *db;

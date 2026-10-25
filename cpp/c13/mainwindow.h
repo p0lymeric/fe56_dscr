@@ -24,14 +24,17 @@ protected:
 
 private slots:
     void onMessageEditorTextChanged();
-    void onDscrClientDscrMessageReceived(const QDateTime &time, qint64 from, qint64 sequenceNum, const QVector<qint64> &symbols);
+    void onDscrClientDscrMessageReceived(const QDateTime &time, const DscrMessage &msg);
     void onDscrClientCallSignsChanged(const QDateTime &time, const QVector<qint64> &callSigns);
 
-
 private:
+    void pushToChatBrowser(const DscrMessage &msg);
+
     Ui::MainWindow *ui;
     MainCore *core;
     QStringListModel usersModel;
     DictionaryTableModel dictionaryModel;
     QLabel instantMouseoverToolTip;
+    // TODO temp for reacting to dictionary updates
+    QVector<DscrMessage> messages;
 };

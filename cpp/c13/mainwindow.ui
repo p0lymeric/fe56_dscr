@@ -26,9 +26,25 @@
          <widget class="QTableView" name="dictionaryTable"/>
         </item>
         <item>
+         <widget class="QWidget" name="widget" native="true">
+          <layout class="QHBoxLayout" name="horizontalLayout_2">
+           <item>
+            <widget class="QLineEdit" name="addDictionaryId"/>
+           </item>
+           <item>
+            <widget class="QPushButton" name="addDictionaryButton">
+             <property name="text">
+              <string>ADD</string>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </widget>
+        </item>
+        <item>
          <widget class="QToolButton" name="connectionPill">
           <property name="text">
-           <string>1234 connected etc</string>
+           <string>PLACEHOLDER FOR CONNECT PILL</string>
           </property>
          </widget>
         </item>
@@ -93,7 +109,7 @@
         <item>
          <widget class="QPushButton" name="sendButton">
           <property name="text">
-           <string>Send</string>
+           <string>SEND</string>
           </property>
          </widget>
         </item>

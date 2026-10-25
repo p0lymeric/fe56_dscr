@@ -159,7 +159,12 @@ void DscrClient::onSocketTextMessageReceived(const QString &text) {
             // Received Message
             if(integers.size() >= 2) {
                 // Nominally a message should be non-empty (>= 3) but we'll tolerate the empty case (== 2)
-                emit this->dscrMessageReceived(time, integers[0], integers[1], integers.mid(2));
+                emit this->dscrMessageReceived(time, DscrMessage {
+                    time,
+                    integers[0],
+                    integers[1],
+                    integers.mid(2)
+                });
             }
             break;
         case 'K':

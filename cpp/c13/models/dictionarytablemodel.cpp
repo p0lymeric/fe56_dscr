@@ -9,10 +9,19 @@ DictionaryTableModel::DictionaryTableModel(QObject *parent) : QAbstractTableMode
 void DictionaryTableModel::init(Dictionary *dictionary) {
     this->beginResetModel();
     this->dictionary = dictionary;
-    QObject::connect(this->dictionary, &Dictionary::dataChanged, this, [&](qsizetype flatIdx) {
-        int row = static_cast<int>(flatIdx);
+    QObject::connect(this->dictionary, &Dictionary::dataChanged, this, [&](qsizetype flatIdxStart, qsizetype flatIdxEndIncl) {
+        int rowStart = static_cast<int>(flatIdxStart);
+        int rowEndIncl = static_cast<int>(flatIdxEndIncl);
         // Conservative selection so we don't need dictionary to know which columns to target
-        emit this->dataChanged(this->index(row, 0), this->index(row, 1));
+        emit this->dataChanged(this->index(rowStart, 0), this->index(rowEndIncl, 1));
+    });
+    QObject::connect(this->dictionary, &Dictionary::beginInsertRows, this, [&](qsizetype flatIdxStart, qsizetype flatIdxEndIncl) {
+        int rowStart = static_cast<int>(flatIdxStart);
+        int rowEndIncl = static_cast<int>(flatIdxEndIncl);
+        this->beginInsertRows(QModelIndex(), rowStart, rowEndIncl);
+    });
+    QObject::connect(this->dictionary, &Dictionary::endInsertRows, this, [&]() {
+        this->endInsertRows();
     });
     this->endResetModel();
 }

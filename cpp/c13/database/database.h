@@ -2,6 +2,7 @@
 
 #include <functional>
 #include <optional>
+#include <QHash>
 #include <QObject>
 #include <QSqlDatabase>
 #include <QSqlQuery>
@@ -22,7 +23,10 @@ public:
     QSqlDatabase getConn() const;
 
     bool scopedTransaction(const std::function<bool(Database &)> &fn);
+
     std::optional<QSqlQuery> prepareStatement(const QString &expression);
+    void bindStatement(QSqlQuery &prepStmt, const QHash<QString, QVariant> &bindings);
+    std::optional<QSqlQuery> oneshotStatement(const QString &expression, const QHash<QString, QVariant> &bindings);
 
 signals:
 

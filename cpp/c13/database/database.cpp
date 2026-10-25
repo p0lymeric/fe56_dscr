@@ -72,6 +72,28 @@ std::optional<QSqlQuery> Database::prepareStatement(const QString &expression) {
     return std::nullopt;
 }
 
+void Database::bindStatement(QSqlQuery &prepStmt, const QHash<QString, QVariant> &bindings) {
+    for(auto [key, val] : bindings.asKeyValueRange()) {
+        prepStmt.bindValue(key, val);
+    }
+}
+
+std::optional<QSqlQuery> Database::oneshotStatement(const QString &expression, const QHash<QString, QVariant> &bindings) {
+    std::optional<QSqlQuery> query = this->prepareStatement(expression);
+
+    if(!query.has_value()) {
+        return std::nullopt;
+    }
+
+    this->bindStatement(*query, bindings);
+
+    if(!query->exec()) {
+        return std::nullopt;
+    }
+
+    return query;
+}
+
 static bool executeTrustedSqlFile(Database &db, const QString &fileName) {
     // Unfortunately QSqlDatabase doesn't support executing multiple SQL
     // statements in one shot. Instead of listing each statement in a

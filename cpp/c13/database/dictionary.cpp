@@ -153,7 +153,7 @@ bool Dictionary::relink(qint64 signal, qint64 signalTo) {
     Definition &def = this->entriesFlat[flatIdx];
     if(signal == signalTo) {
         // no-op
-        emit dataChanged(flatIdx);
+        emit this->dataChanged(flatIdx, flatIdx);
         return true;
     }
     // Not allowed to overwrite an existing signal
@@ -165,35 +165,36 @@ bool Dictionary::relink(qint64 signal, qint64 signalTo) {
     if(!this->db->scopedTransaction([&](Database &db) {
         QSqlQuery query(db.getConn());
 
-        query.prepare(R"(
+        // TODO this will fail if the destination is archived
+        if(!this->db->oneshotStatement(R"(
             INSERT INTO user_dictionary(signal, archived, descr, fmt_before, fmt_after, fmt_break_on_double)
             SELECT :to, archived, descr, fmt_before, fmt_after, fmt_break_on_double
             FROM user_dictionary
             WHERE signal=:from
-        )");
-        query.bindValue(":from", signal);
-        query.bindValue(":to", signalTo);
-        if(!query.exec()) {
+        )", {
+            {":from", signal},
+            {":to", signalTo},
+        }).has_value()) {
             return false;
         }
 
-        query.prepare(R"(
+        if(!this->db->oneshotStatement(R"(
             UPDATE user_translations
             SET signal=:to
             WHERE signal=:from
-        )");
-        query.bindValue(":from", signal);
-        query.bindValue(":to", signalTo);
-        if(!query.exec()) {
+        )", {
+            {":from", signal},
+            {":to", signalTo},
+        }).has_value()) {
             return false;
         }
 
-        query.prepare(R"(
+        if(!this->db->oneshotStatement(R"(
             DELETE FROM user_dictionary
             WHERE signal=:from
-        )");
-        query.bindValue(":from", signal);
-        if(!query.exec()) {
+        )", {
+            {":from", signal},
+        }).has_value()) {
             return false;
         }
 
@@ -225,12 +226,11 @@ bool Dictionary::relink(qint64 signal, qint64 signalTo) {
     };
     fe56_dictionary_add(this->fe56Dictionary, signalTo, reinterpret_cast<const uint8_t*>(wordUtf8.data()), wordUtf8.size(), formatting);
 
-    emit dataChanged(flatIdx);
+    emit this->dataChanged(flatIdx, flatIdx);
     return true;
 }
 
-bool Dictionary::rename(qint64 signal, QString word) {
-
+bool Dictionary::rename(qint64 signal, const QString &word) {
     // Lookup
     auto it = this->signalToEntriesFlat.constFind(signal);
     if(it == this->signalToEntriesFlat.cend()) {
@@ -240,11 +240,12 @@ bool Dictionary::rename(qint64 signal, QString word) {
     Definition &def = this->entriesFlat[flatIdx];
     if(word == def.word) {
         // no-op
-        emit dataChanged(flatIdx);
+        emit this->dataChanged(flatIdx, flatIdx);
         return true;
     }
 
     // Debounce
+    // TODO pop the top revision if it has been renamed to be identical to the second top revision within REVISION_DEBOUNCE_TIME_MS
     const qint64 REVISION_DEBOUNCE_TIME_MS = 30000; // 30 sec
     bool keepExistingRevision = this->timeSinceLastEdit.isValid() && this->lastEditedSignal == signal && this->timeSinceLastEdit.elapsed() <= REVISION_DEBOUNCE_TIME_MS;
     qint64 newRevision = def.revision;
@@ -256,22 +257,19 @@ bool Dictionary::rename(qint64 signal, QString word) {
     this->lastEditedSignal = signal;
 
     // SQL
-    QSqlQuery query(this->db->getConn());
-    if(!query.prepare(R"(
+    if(!this->db->oneshotStatement(R"(
         INSERT INTO user_translations(signal, revision, mtime_posix_ms, word)
         VALUES(:signal, :revision, :mtime, :word)
         ON CONFLICT(signal, revision)
         DO UPDATE SET
             mtime_posix_ms=:mtime,
             word=:word
-    )")) {
-        return false;
-    }
-    query.bindValue(":signal", signal);
-    query.bindValue(":revision", newRevision);
-    query.bindValue(":mtime", newTime.toMSecsSinceEpoch());
-    query.bindValue(":word", word);
-    if(!query.exec()) {
+    )", {
+        {":signal", signal},
+        {":revision", newRevision},
+        {":mtime", newTime.toMSecsSinceEpoch()},
+        {":word", word},
+    }).has_value()) {
         return false;
     }
 
@@ -290,6 +288,113 @@ bool Dictionary::rename(qint64 signal, QString word) {
     };
     fe56_dictionary_add(this->fe56Dictionary, signal, reinterpret_cast<const uint8_t*>(wordUtf8.data()), wordUtf8.size(), formatting);
 
-    emit dataChanged(flatIdx);
+    emit this->dataChanged(flatIdx, flatIdx);
+    return true;
+}
+
+bool Dictionary::add(qint64 signal) {
+    // Lookup
+    auto it = this->signalToEntriesFlat.constFind(signal);
+    if(it != this->signalToEntriesFlat.cend()) {
+        return false;
+    }
+
+    Definition def = Definition {
+        signal,
+        "??? ADD NOTES HERE ???",
+        static_cast<Spacing>(this->settings->get("dictionary.beforeUserDefaultMode", static_cast<int>(Spacing::Space)).toInt()),
+        static_cast<Spacing>(this->settings->get("dictionary.afterUserDefaultMode", static_cast<int>(Spacing::Newline)).toInt()),
+        false,
+        0,
+        QDateTime::fromMSecsSinceEpoch(0),
+        ""
+    };
+
+    // SQL
+    if(!this->db->scopedTransaction([&](Database &db) {
+        // Try to get an existing signal
+        if(auto stmtD = db.oneshotStatement(R"(
+            UPDATE user_dictionary
+            SET archived=0
+            WHERE signal=:signal AND archived=1
+            RETURNING descr, fmt_before, fmt_after, fmt_break_on_double
+        )", {
+            {":signal", signal},
+        }); stmtD.has_value()) {
+            if(stmtD->next()) {
+                def.desc = stmtD->value(0).toString();
+                def.formatBefore = static_cast<Spacing>(stmtD->value(1).toInt());
+                def.formatAfter = static_cast<Spacing>(stmtD->value(2).toInt());
+                def.breakOnDouble = stmtD->value(3).toBool();
+                if(auto stmtT = db.oneshotStatement(R"(
+                    SELECT revision, mtime_posix_ms, word
+                    FROM user_translations
+                    WHERE signal=:signal
+                    ORDER BY revision DESC
+                    LIMIT 1
+                )", {
+                    {":signal", signal},
+                }); stmtT.has_value()) {
+                    if(stmtT->next()) {
+                        def.revision = stmtT->value(0).toLongLong();
+                        def.mtime = QDateTime::fromMSecsSinceEpoch(stmtT->value(1).toLongLong());
+                        def.word = stmtT->value(2).toString();
+                    }
+                } else {
+                    return false;
+                }
+                return true;
+            }
+            // fall through to insertion step
+        } else {
+            // abort due to SQL error
+            return false;
+        }
+
+        // Insert a new signal
+        if(auto stmt = db.oneshotStatement(R"(
+            INSERT INTO user_dictionary(signal, archived, descr, fmt_before, fmt_after, fmt_break_on_double)
+            VALUES(:signal, 0, :descr, :fmt_before, :fmt_after, :fmt_break_on_double)
+        )", {
+            {":signal", signal},
+            {":descr", def.desc},
+            {":fmt_before", static_cast<int>(def.formatBefore)},
+            {":fmt_after", static_cast<int>(def.formatAfter)},
+            {":fmt_break_on_double", def.breakOnDouble ? 1 : 0},
+        }); stmt.has_value()) {
+            return true;
+        } else {
+            // abort due to SQL error
+            return false;
+        }
+    })) {
+        // return from function due to abort in lambda
+        return false;
+    }
+
+    // Debounce
+    if(this->timeSinceLastEdit.isValid()) {
+        this->timeSinceLastEdit.invalidate();
+    }
+
+    // Flat
+    qsizetype flatIdx = this->entriesFlat.size();
+    this->signalToEntriesFlat[signal] = flatIdx;
+    emit this->beginInsertRows(flatIdx, flatIdx);
+    this->entriesFlat.append(def);
+    emit this->endInsertRows();
+    // TODO insort
+
+    // Fe56
+    if(def.revision > 0) {
+        const QByteArray wordUtf8 = def.word.toUtf8();
+        Fe56Formatting formatting {
+            static_cast<Fe56SpacingKind>(def.formatBefore),
+            static_cast<Fe56SpacingKind>(def.formatAfter),
+            def.breakOnDouble,
+        };
+        fe56_dictionary_add(this->fe56Dictionary, signal, reinterpret_cast<const uint8_t*>(wordUtf8.data()), wordUtf8.size(), formatting);
+    }
+
     return true;
 }
