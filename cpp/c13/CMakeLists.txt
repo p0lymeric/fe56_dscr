@@ -23,6 +23,7 @@ qt_add_executable(c13
 
     mainwindow.h mainwindow.cpp mainwindow.ui
     serverconnectdialog.h serverconnectdialog.cpp serverconnectdialog.ui
+    models/dictionarytablemodel.h models/dictionarytablemodel.cpp
 
 )
 

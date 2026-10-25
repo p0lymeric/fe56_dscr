@@ -1,6 +1,7 @@
 #pragma once
 
 #include "maincore.h"
+#include "models/dictionarytablemodel.h"
 
 #include <QLabel>
 #include <QMainWindow>
@@ -31,6 +32,6 @@ private:
     Ui::MainWindow *ui;
     MainCore *core;
     QStringListModel usersModel;
-    QSqlQueryModel dictionaryModel;
+    DictionaryTableModel dictionaryModel;
     QLabel instantMouseoverToolTip;
 };

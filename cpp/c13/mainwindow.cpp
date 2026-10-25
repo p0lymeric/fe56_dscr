@@ -35,6 +35,7 @@ MainWindow::MainWindow(MainCore *core, QWidget *parent) :
     this->ui->usersList->setModel(&this->usersModel);
     this->ui->usersList->setEditTriggers(QAbstractItemView::NoEditTriggers);
 
+    this->dictionaryModel.init(&this->core->dictionary); // run before setting dictionaryTable model
     this->ui->dictionaryTable->setModel(&this->dictionaryModel);
     this->ui->dictionaryTable->setSelectionBehavior(QAbstractItemView::SelectRows);
     this->ui->dictionaryTable->setSelectionMode(QAbstractItemView::SingleSelection);
@@ -52,21 +53,6 @@ MainWindow::MainWindow(MainCore *core, QWidget *parent) :
     this->instantMouseoverToolTip.setWindowFlags(Qt::ToolTip);
     this->instantMouseoverToolTip.setAttribute(Qt::WA_TransparentForMouseEvents);
 
-    this->dictionaryModel.setQuery(R"(
-        SELECT d.signal, t.word
-        FROM user_dictionary AS d
-        LEFT JOIN user_translations as t
-        ON d.signal=t.signal
-        AND t.revision=(
-            SELECT MAX(revision)
-            FROM user_translations
-            WHERE signal=d.signal
-        )
-        WHERE d.archived=0
-        ORDER BY d.signal DESC
-    )", this->core->database.getConn());
-    this->dictionaryModel.setHeaderData(0, Qt::Horizontal, "SIGNAL");
-    this->dictionaryModel.setHeaderData(1, Qt::Horizontal, "WORD");
     this->core->dscrClient.register_(this->core->settings.get("dscrClient.callsign", 01444).toLongLong(), false);
     this->core->dscrClient.open(QUrl(this->core->settings.get("dscrClient.url", "wss://dscr-relay.dixonary.co.uk").toString()));
 }
@@ -106,6 +92,8 @@ bool MainWindow::eventFilter(QObject *watched, QEvent *event) {
                         this->instantMouseoverToolTip.adjustSize();
                         this->instantMouseoverToolTip.move(eventMouse->globalPosition().toPoint() + QPoint(15, 15));
                         this->instantMouseoverToolTip.show();
+                    } else {
+                        this->instantMouseoverToolTip.hide();
                     }
                 } else {
                     // TODO may be edge cases where we don't see a MouseMove but still want to close the tooltip
@@ -139,6 +127,10 @@ bool MainWindow::eventFilter(QObject *watched, QEvent *event) {
                 }
                 break;
             }
+            case QEvent::Leave: {
+                this->instantMouseoverToolTip.hide();
+                break;
+            }
             default:
                 break;
         }
@@ -154,7 +146,7 @@ void MainWindow::onMessageEditorTextChanged() {
     const QByteArray textUtf8 = text.toUtf8();
 
     // FIXME Fe56 returns results in UTF-8 coordinates but QString is UTF-16...
-    Fe56RVec_SymbolizerTrace traces = fe56_mwis_symbolize(this->core->dictionary.dictionary, reinterpret_cast<const uint8_t *>(textUtf8.constData()), textUtf8.size());
+    Fe56RVec_SymbolizerTrace traces = fe56_mwis_symbolize(this->core->dictionary.fe56Dictionary, reinterpret_cast<const uint8_t *>(textUtf8.constData()), textUtf8.size());
 
     QString signalVizText;
 
@@ -238,7 +230,7 @@ void MainWindow::onDscrClientDscrMessageReceived(const QDateTime &time, qint64 f
     cur.insertText(QString::number(from, 8).rightJustified(4, '0'), callsignFormat);
 
     cur.insertBlock(messageBlockFormat);
-    Fe56RDesymbolized desym = fe56_reformatter_desymbolize(this->core->dictionary.dictionary, symbols.constData(), symbols.size());
+    Fe56RDesymbolized desym = fe56_reformatter_desymbolize(this->core->dictionary.fe56Dictionary, symbols.constData(), symbols.size());
     QString str = QString::fromUtf8(QByteArrayView(desym.text.ptr, desym.text.size));
     int positionOffset = cur.position();
     cur.insertText(str, messageFormat);

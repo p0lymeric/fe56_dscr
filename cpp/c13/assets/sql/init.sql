@@ -74,7 +74,7 @@ CREATE TABLE user_dictionary( -- The translation dictionary
 CREATE TABLE user_translations( -- A historical ID to word association in the dictionary
     signal INTEGER NOT NULL,
     revision INTEGER NOT NULL,
-    mtime_posix_ms INTEGER NOT NULL, -- should be used to squash modifications within a time window
+    mtime_posix_ms INTEGER NOT NULL, -- Use to display modification time
     word TEXT NOT NULL,
     PRIMARY KEY(signal, revision),
     FOREIGN KEY(signal) REFERENCES user_dictionary(signal) ON DELETE RESTRICT
