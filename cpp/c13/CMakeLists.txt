@@ -42,13 +42,13 @@ target_include_directories(c13
 
 # TODO probably port symbolizer to C++
 if(NOT DEFINED RUST_TARGET_PATH)
-    target_link_directories(c13 PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/../../rust/target/$<IF:$<CONFIG:Debug>,debug,release>")
+    target_link_libraries(c13 PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/../../rust/target/$<IF:$<CONFIG:Debug>,debug,release>/${CMAKE_STATIC_LIBRARY_PREFIX}fe56${CMAKE_STATIC_LIBRARY_SUFFIX}")
 else()
-    target_link_directories(c13 PRIVATE "${RUST_TARGET_PATH}")
+    target_link_libraries(c13 PRIVATE "${RUST_TARGET_PATH}/${CMAKE_STATIC_LIBRARY_PREFIX}fe56${CMAKE_STATIC_LIBRARY_SUFFIX}")
 endif()
 
-target_link_libraries(c13 PRIVATE fe56)
 if(WIN32)
+    # cargo rustc -p fe56_capi --release -- --print native-static-libs
     target_link_libraries(c13 PRIVATE kernel32 ntdll userenv ws2_32 dbghelp)
 endif()
 target_include_directories(c13 PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../../rust/crates/fe56_capi/include)

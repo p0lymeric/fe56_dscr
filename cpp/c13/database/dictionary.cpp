@@ -144,7 +144,7 @@ const Definition &Dictionary::getDefinitionFlat(qsizetype flatIdx) const {
 }
 
 bool Dictionary::relink(qint64 signal, qint64 signalTo) {
-    // Flat
+    // Lookup
     auto it = this->signalToEntriesFlat.constFind(signal);
     if(it == this->signalToEntriesFlat.cend()) {
         return false;
@@ -160,15 +160,60 @@ bool Dictionary::relink(qint64 signal, qint64 signalTo) {
     if(this->signalToEntriesFlat.contains(signalTo)) {
         return false;
     }
+
+    // SQL
+    if(!this->db->scopedTransaction([&](Database &db) {
+        QSqlQuery query(db.getConn());
+
+        query.prepare(R"(
+            INSERT INTO user_dictionary(signal, archived, descr, fmt_before, fmt_after, fmt_break_on_double)
+            SELECT :to, archived, descr, fmt_before, fmt_after, fmt_break_on_double
+            FROM user_dictionary
+            WHERE signal=:from
+        )");
+        query.bindValue(":from", signal);
+        query.bindValue(":to", signalTo);
+        if(!query.exec()) {
+            return false;
+        }
+
+        query.prepare(R"(
+            UPDATE user_translations
+            SET signal=:to
+            WHERE signal=:from
+        )");
+        query.bindValue(":from", signal);
+        query.bindValue(":to", signalTo);
+        if(!query.exec()) {
+            return false;
+        }
+
+        query.prepare(R"(
+            DELETE FROM user_dictionary
+            WHERE signal=:from
+        )");
+        query.bindValue(":from", signal);
+        if(!query.exec()) {
+            return false;
+        }
+
+        return true;
+    })) {
+        return false;
+    }
+
+    // Relinks aren't versioned but we want to squash consecutive edits on the same entry only
+    if(this->timeSinceLastEdit.isValid() && this->lastEditedSignal == signal) {
+        this->lastEditedSignal = signalTo;
+    } else {
+        this->timeSinceLastEdit.invalidate();
+    }
+
+    // Flat
     def.signal = signalTo;
     this->signalToEntriesFlat.remove(signal);
     this->signalToEntriesFlat.insert(signalTo, flatIdx);
     // TODO reorder position in flat map
-
-    // Relinks aren't versioned but we want to squash consecutive edits on the same ID only
-    if(this->lastEditedSignal == signal) {
-        this->lastEditedSignal = signalTo;
-    }
 
     // Fe56
     fe56_dictionary_remove(this->fe56Dictionary, signal);
@@ -179,23 +224,14 @@ bool Dictionary::relink(qint64 signal, qint64 signalTo) {
         def.breakOnDouble,
     };
     fe56_dictionary_add(this->fe56Dictionary, signalTo, reinterpret_cast<const uint8_t*>(wordUtf8.data()), wordUtf8.size(), formatting);
-    // SQL
-    // TODO
+
     emit dataChanged(flatIdx);
     return true;
 }
 
 bool Dictionary::rename(qint64 signal, QString word) {
-    // TODO Our compiler allows identical words and whitespace, We should probably block exact
-    // (and perhaps casefolded) equivalances from being inserted.
-    if(word.trimmed().isEmpty()) {
-        // strings with only whitespace are confusing.
-        // gut feeling the empty string will actually cause compiler problems lol
-        // (have not checked apart from trying to account for it in early implementations of Fe56)
-        return false;
-    }
 
-    // Flat
+    // Lookup
     auto it = this->signalToEntriesFlat.constFind(signal);
     if(it == this->signalToEntriesFlat.cend()) {
         return false;
@@ -207,15 +243,43 @@ bool Dictionary::rename(qint64 signal, QString word) {
         emit dataChanged(flatIdx);
         return true;
     }
-    def.word = word;
+
+    // Debounce
     const qint64 REVISION_DEBOUNCE_TIME_MS = 30000; // 30 sec
     bool keepExistingRevision = this->timeSinceLastEdit.isValid() && this->lastEditedSignal == signal && this->timeSinceLastEdit.elapsed() <= REVISION_DEBOUNCE_TIME_MS;
-    if(!keepExistingRevision) {
-        def.revision++;
+    qint64 newRevision = def.revision;
+    QDateTime newTime = QDateTime::currentDateTime();
+    if(newRevision == 0 || !keepExistingRevision) {
+        newRevision++;
     }
-    def.mtime = QDateTime::currentDateTime();
     this->timeSinceLastEdit.start();
     this->lastEditedSignal = signal;
+
+    // SQL
+    QSqlQuery query(this->db->getConn());
+    if(!query.prepare(R"(
+        INSERT INTO user_translations(signal, revision, mtime_posix_ms, word)
+        VALUES(:signal, :revision, :mtime, :word)
+        ON CONFLICT(signal, revision)
+        DO UPDATE SET
+            mtime_posix_ms=:mtime,
+            word=:word
+    )")) {
+        return false;
+    }
+    query.bindValue(":signal", signal);
+    query.bindValue(":revision", newRevision);
+    query.bindValue(":mtime", newTime.toMSecsSinceEpoch());
+    query.bindValue(":word", word);
+    if(!query.exec()) {
+        return false;
+    }
+
+    // Flat
+    def.revision = newRevision;
+    def.mtime = newTime;
+    def.word = word;
+
     // Fe56
     fe56_dictionary_remove(this->fe56Dictionary, signal);
     const QByteArray wordUtf8 = word.toUtf8();
@@ -225,8 +289,7 @@ bool Dictionary::rename(qint64 signal, QString word) {
         def.breakOnDouble,
     };
     fe56_dictionary_add(this->fe56Dictionary, signal, reinterpret_cast<const uint8_t*>(wordUtf8.data()), wordUtf8.size(), formatting);
-    // SQL
-    // TODO
+
     emit dataChanged(flatIdx);
     return true;
 }

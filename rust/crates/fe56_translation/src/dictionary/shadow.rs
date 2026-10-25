@@ -41,7 +41,7 @@ impl Dictionary for ShadowDictionary {
     }
 
     fn lookup(&self, word: &str) -> Option<SymbolT> {
-        // TODO need to assert that the dictionary does not contain identical entries
+        // TODO does not account for identical entries
         self.trie_exact.search(word).first().copied()
     }
 
@@ -68,7 +68,8 @@ impl Dictionary for ShadowDictionary {
             // edge case: user passes "ßa", it casefolds to "ssa", trie returns a match for "sa",
             // which cannot map into to the 2-character casefolded sequence
             if let Some(start_orig) = text_casefold.to_orig(end_casefold - result.length) {
-                let exact_case = self.lookup(&text[start_orig..end]) == Some(result.id);
+                // edge case: the dictionary contains identical words. in such a case we'll report ambiguities.
+                let exact_case = self.trie_exact.search(&text[start_orig..end]).binary_search_by(|x| result.id.cmp(x)).is_ok();
                 Some(TokenizeResult {
                     kind: if exact_case { TokenizeResultKind::WordExact } else { TokenizeResultKind::WordInexact },
                     id: result.id,

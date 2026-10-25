@@ -262,6 +262,8 @@ impl Symbolizer for MwisSymbolizer {
         //           e.g. "FIRETRUCK" unambiguously parses as "FIRETRUCK", whereas "FIRE TRUCK" unambiguously parses as "FIRE TRUCK".
         //           e.g. For the same reason, "ITIS" unambiguously parses as "ITIS", instead of "IT IS".
         //         - It is expected that a user will type with redundant whitespace and curate their dictionary to defend against unwanted compound merging.
+        //     3. Any empty words or words that consist of whitespace are never used, as they contribute zero W1 weight but one W3 weight
+        //        (picking them is always worse than not picking them).
 
         let mut weights: Vec<MwisWeight> = Vec::with_capacity(token_candidates.len() + 1);
         let mut precedes: Vec<usize> = Vec::with_capacity(token_candidates.len() + 1);

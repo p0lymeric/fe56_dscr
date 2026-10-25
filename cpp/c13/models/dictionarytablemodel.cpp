@@ -69,6 +69,18 @@ bool DictionaryTableModel::setData(const QModelIndex &index, const QVariant &val
         return false;
     }
 
+    // TODO eventually support these options:
+    // dictionaryEditor.acceptEmptyOrAllWhitespaceWords
+    // dictionaryEditor.acceptWordsContainingMixtureOfWhitespaceAndNonWhitespace
+    // dictionaryEditor.acceptWordsContaining|@
+    // dictionaryEditor.acceptCasefoldedDuplicates
+    // dictionaryEditor.acceptExactDuplicates
+    // dictionaryEditor.acceptWordsLongerThan16Codepoints
+    // dictionaryEditor.ILIKEALLCAPSBUTMYPINKYISTIRED
+
+    // With complicated edit rules, may want a QValidator in the loop
+    // to avoid needing to reset a cell due to a rules violation
+
     qint64 signal = this->dictionary->getDefinitionFlat(index.row()).signal;
 
     switch(index.column()) {
@@ -76,10 +88,21 @@ bool DictionaryTableModel::setData(const QModelIndex &index, const QVariant &val
             return dictionary->relink(signal, value.toLongLong());
         }
         case 1: {
-            return dictionary->rename(signal, value.toString());
+            QString word = value.toString();
+            if(word.trimmed().isEmpty()) {
+                 // Empty strings and strings with only whitespace are probably unintentional
+                return false;
+            }
+            return dictionary->rename(signal, word);
         }
         default: {
             return false;
         }
     }
 }
+
+// bool insertRows(int row, int count, const QModelIndex &parent) {
+// }
+
+// bool removeRows(int row, int count, const QModelIndex &parent) {
+// }
