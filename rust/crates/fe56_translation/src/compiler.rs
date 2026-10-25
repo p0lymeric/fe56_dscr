@@ -76,6 +76,7 @@ pub struct SymbolizerError {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[repr(C)]
 pub struct SymbolizerToken {
     pub id: dictionary::SymbolT,
     pub span: SymbolizerSpan<usize>,

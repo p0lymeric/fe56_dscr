@@ -80,7 +80,20 @@
           <widget class="QWidget" name="widget_2" native="true">
            <layout class="QVBoxLayout" name="verticalLayout_5">
             <item>
-             <widget class="QLineEdit" name="signalViz"/>
+             <widget class="QWidget" name="widget_3" native="true">
+              <layout class="QHBoxLayout" name="horizontalLayout_3">
+               <item>
+                <widget class="QLineEdit" name="signalViz"/>
+               </item>
+               <item>
+                <widget class="QPushButton" name="sendButton">
+                 <property name="text">
+                  <string>SEND</string>
+                 </property>
+                </widget>
+               </item>
+              </layout>
+             </widget>
             </item>
             <item>
              <widget class="QTextEdit" name="messageEditor">
@@ -104,13 +117,6 @@
           </property>
           <widget class="QListView" name="usersList"/>
           <widget class="QTextBrowser" name="inspector"/>
-         </widget>
-        </item>
-        <item>
-         <widget class="QPushButton" name="sendButton">
-          <property name="text">
-           <string>SEND</string>
-          </property>
          </widget>
         </item>
        </layout>

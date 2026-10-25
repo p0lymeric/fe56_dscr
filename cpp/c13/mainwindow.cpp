@@ -9,11 +9,8 @@
 #include <QFileDialog>
 #include <QHash>
 #include <QSqlQuery>
-#include <QJsonDocument>
-#include <QJsonArray>
-#include <QJsonObject>
-#include <QJsonValue>
 #include <QMouseEvent>
+#include <QKeyEvent>
 #include <QScrollBar>
 
 enum UserTextFormatProperty {
@@ -47,6 +44,7 @@ MainWindow::MainWindow(MainCore *core, QWidget *parent) :
     this->ui->chatBrowser->viewport()->installEventFilter(this);
     this->ui->messageEditor->viewport()->setMouseTracking(true);
     this->ui->messageEditor->viewport()->installEventFilter(this);
+    this->ui->messageEditor->installEventFilter(this);
     this->instantMouseoverToolTip.setWindowFlags(Qt::ToolTip);
     this->instantMouseoverToolTip.setAttribute(Qt::WA_TransparentForMouseEvents);
 
@@ -217,6 +215,27 @@ bool MainWindow::eventFilter(QObject *watched, QEvent *event) {
             default:
                 break;
         }
+    } else if (watched == this->ui->messageEditor) {
+        switch(event->type()) {
+            case QEvent::KeyPress: {
+                QKeyEvent *eventKey = static_cast<QKeyEvent *>(event);
+                if((eventKey->key() == Qt::Key_Enter || eventKey->key() == Qt::Key_Return) && (eventKey->modifiers() & Qt::ControlModifier)) {
+                    if(this->canSend) {
+                        qDebug() << "Send" << this->signalsToSend;
+                        this->core->dscrClient.sendDscrMessage(this->signalsToSend);
+                        this->ui->messageEditor->clear();
+                        this->ui->signalViz->clear();
+                    } else {
+                        qDebug() << "canSend is false";
+                    }
+                    // prevent Ctrl+Enter from generating a newline
+                    return true;
+                }
+                break;
+            }
+            default:
+                break;
+        }
     }
     return false;
 }
@@ -226,7 +245,16 @@ void MainWindow::onMessageEditorTextChanged() {
     const QByteArray textUtf8 = text.toUtf8();
 
     // FIXME Fe56 returns results in UTF-8 coordinates but QString is UTF-16...
-    Fe56RVec_SymbolizerTrace traces = fe56_mwis_symbolize(this->core->dictionary.fe56Dictionary, reinterpret_cast<const uint8_t *>(textUtf8.constData()), textUtf8.size());
+    Fe56RSymbolized symbolized = fe56_mwis_symbolize(this->core->dictionary.fe56Dictionary, reinterpret_cast<const uint8_t *>(textUtf8.constData()), textUtf8.size());
+    Fe56RVec_SymbolizerToken &tokens = symbolized.tokens;
+    Fe56RVec_SymbolizerTrace &traces = symbolized.traces;
+
+    this->canSend = symbolized.tokens.size > 0 && !symbolized.has_error;
+    this->signalsToSend.clear();
+    for(uintptr_t i = 0; i < tokens.size; i++) {
+        auto token = tokens.ptr[i];
+        signalsToSend.append(token.id);
+    }
 
     QString signalVizText;
 
@@ -273,7 +301,7 @@ void MainWindow::onMessageEditorTextChanged() {
         sel.format = fmt;
         selections.append(sel);
     }
-    fe56_rvec_symbolizertrace_free(traces);
+    fe56_rsymbolized_free(symbolized);
     ui->messageEditor->setExtraSelections(selections);
     ui->signalViz->setText(signalVizText);
 }

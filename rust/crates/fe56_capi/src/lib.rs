@@ -1,6 +1,7 @@
 use fe56_translation::compiler::Desymbolizer;
 use fe56_translation::compiler::Symbolizer;
 use fe56_translation::compiler::SymbolizerSpan;
+use fe56_translation::compiler::SymbolizerToken;
 use fe56_translation::compiler::SymbolizerTrace;
 use fe56_translation::compiler::mwis::MwisSymbolizer;
 use fe56_translation::compiler::reformatter::CReformatterDesymbolizer;
@@ -58,21 +59,36 @@ pub extern "C" fn fe56_dictionary_free(p_dictionary: *mut ShadowDictionary) {
     unsafe { std::mem::drop(Box::from_raw(p_dictionary)); }
 }
 
+#[derive(Debug, Clone)]
+#[repr(C)]
+pub struct RSymbolized {
+    pub tokens: RVec<SymbolizerToken>,
+    pub has_error: bool,
+    pub traces: RVec<SymbolizerTrace>,
+}
+
 #[unsafe(no_mangle)]
-pub extern "C" fn fe56_mwis_symbolize(p_dictionary: *const ShadowDictionary, p_text: *const u8, size: usize) -> RVec<SymbolizerTrace> {
+pub extern "C" fn fe56_mwis_symbolize(p_dictionary: *const ShadowDictionary, p_text: *const u8, size: usize) -> RSymbolized {
     let dictionary = unsafe { &*p_dictionary };
     let text = unsafe { str::from_utf8_unchecked(std::slice::from_raw_parts(p_text, size)) };
 
     let symbolized = MwisSymbolizer.symbolize(dictionary, text);
 
-    let (ptr, size, capacity) = symbolized.traces.into_raw_parts();
+    let (tokens_ptr, tokens_size, tokens_capacity) = symbolized.tokens.into_raw_parts();
+    let tokens = RVec { ptr: tokens_ptr, size: tokens_size, capacity: tokens_capacity };
 
-    RVec { ptr, size, capacity }
+    let (traces_ptr, traces_size, traces_capacity) = symbolized.traces.into_raw_parts();
+    let traces = RVec { ptr: traces_ptr, size: traces_size, capacity: traces_capacity };
+
+    return RSymbolized { tokens, has_error: !symbolized.errors.is_empty(), traces };
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn fe56_rvec_symbolizertrace_free(r_vec: RVec<SymbolizerTrace>) {
-    unsafe { std::mem::drop(Vec::from_raw_parts(r_vec.ptr, r_vec.size, r_vec.capacity)); }
+pub extern "C" fn fe56_rsymbolized_free(r_symbolized: RSymbolized) {
+    unsafe {
+        std::mem::drop(Vec::from_raw_parts(r_symbolized.tokens.ptr, r_symbolized.tokens.size, r_symbolized.tokens.capacity));
+        std::mem::drop(Vec::from_raw_parts(r_symbolized.traces.ptr, r_symbolized.traces.size, r_symbolized.traces.capacity));
+    }
 }
 
 #[derive(Debug, Clone)]

@@ -24,12 +24,23 @@ typedef struct Fe56Formatting {
 #define Fe56Formatting_DIGIT (Fe56Formatting){ .before = None, .after = None, .break_on_double = false }
 #define Fe56Formatting_DEFAULT (Fe56Formatting){ .before = Space, .after = Newline, .break_on_double = false }
 
+typedef int64_t Fe56SymbolT;
+
 typedef struct Fe56SymbolizerSpan_usize {
     uintptr_t start;
     uintptr_t end;
 } Fe56SymbolizerSpan_usize;
 
-typedef int64_t Fe56SymbolT;
+typedef struct Fe56SymbolizerToken {
+    Fe56SymbolT id;
+    struct Fe56SymbolizerSpan_usize span;
+} Fe56SymbolizerToken;
+
+typedef struct Fe56RVec_SymbolizerToken {
+    struct Fe56SymbolizerToken *ptr;
+    uintptr_t size;
+    uintptr_t capacity;
+} Fe56RVec_SymbolizerToken;
 
 typedef enum Fe56SymbolizerTraceKind_Tag {
     Token,
@@ -74,6 +85,12 @@ typedef struct Fe56RVec_SymbolizerTrace {
     uintptr_t capacity;
 } Fe56RVec_SymbolizerTrace;
 
+typedef struct Fe56RSymbolized {
+    struct Fe56RVec_SymbolizerToken tokens;
+    bool has_error;
+    struct Fe56RVec_SymbolizerTrace traces;
+} Fe56RSymbolized;
+
 typedef struct Fe56RStr {
     uint8_t *ptr;
     uintptr_t size;
@@ -110,11 +127,11 @@ bool fe56_dictionary_set_global_format(struct Fe56ShadowDictionary *p_dictionary
 
 void fe56_dictionary_free(struct Fe56ShadowDictionary *p_dictionary);
 
-struct Fe56RVec_SymbolizerTrace fe56_mwis_symbolize(const struct Fe56ShadowDictionary *p_dictionary,
-                                                    const uint8_t *p_text,
-                                                    uintptr_t size);
+struct Fe56RSymbolized fe56_mwis_symbolize(const struct Fe56ShadowDictionary *p_dictionary,
+                                           const uint8_t *p_text,
+                                           uintptr_t size);
 
-void fe56_rvec_symbolizertrace_free(struct Fe56RVec_SymbolizerTrace r_vec);
+void fe56_rsymbolized_free(struct Fe56RSymbolized r_symbolized);
 
 struct Fe56RDesymbolized fe56_reformatter_desymbolize(const struct Fe56ShadowDictionary *p_dictionary,
                                                       const int64_t *p_arr,

@@ -37,4 +37,7 @@ private:
     QLabel instantMouseoverToolTip;
     // TODO temp for reacting to dictionary updates
     QVector<DscrMessage> messages;
+    // TODO loose message editor state
+    QVector<qint64> signalsToSend;
+    bool canSend;
 };
