@@ -28,7 +28,7 @@ int main(int argc, char *argv[]) {
         QWidget { background: #001405; color: #0CED45; selection-background-color: #0CED45; selection-color: #001405; border-radius: 6px; }
         QTextEdit, QTextBrowser, QListView, QLineEdit { border: 1px solid #086921; }
         QScrollBar { background: #001405; }
-        QScrollBar::handle { background: #086921; border-radius: 3px; }
+        QScrollBar::handle { background: #086921; border-radius: 3px; min-height: 20px; }
         QScrollBar::add-line, QScrollBar::sub-line { width: 0; height: 0; }
         QSplitter::handle { background: #086921; }
         QSplitter::handle:hover { background: #0DA635; }

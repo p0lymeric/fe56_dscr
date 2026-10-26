@@ -24,9 +24,5 @@ public:
     // bool removeRows(int row, int count, const QModelIndex &parent) override;
 
 private:
-    bool relinkSignalId(qint64 signal, qint64 newSignal);
-    bool setWord(qint64 signal, const QString &word);
-    void refresh();
-
     Dictionary *dictionary;
 };

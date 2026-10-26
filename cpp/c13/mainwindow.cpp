@@ -61,17 +61,75 @@ MainWindow::MainWindow(MainCore *core, QWidget *parent) :
         }
     });
 
-    QObject::connect(&this->core->dictionary, &Dictionary::dataChanged, this, [&](qsizetype, qsizetype) {
+    auto lambdaRetranslate = [&]() {
         emit this->onMessageEditorTextChanged();
-        // FIXME |-108 |-155 |-66 (maybe)
-        // we will want to eventually drive the chat browser from a message model
+        // we will want to eventually drive the chat browser with a message model
+        QScrollBar *vBar = this->ui->chatBrowser->verticalScrollBar();
+        int vBarOldPosition = vBar->value();
+        bool vBarOldAtBottom = vBarOldPosition == vBar->maximum();
         this->ui->chatBrowser->clear();
-        for(auto msg : this->messages) {
+        for(auto &msg : this->messages) {
             this->pushToChatBrowser(msg);
         }
-    });
+        if(vBarOldAtBottom || vBarOldPosition > vBar->maximum()) {
+            vBar->setValue(vBar->maximum());
+        } else {
+            vBar->setValue(vBarOldPosition);
+        }
+    };
 
-    this->core->dscrClient.register_(this->core->settings.get("dscrClient.callsign", 01444).toLongLong(), false);
+    QObject::connect(&this->core->dictionary, &Dictionary::dataChanged, this, [lambdaRetranslate](qsizetype, qsizetype) { lambdaRetranslate(); });
+    // temp to force a retranslate
+    QObject::connect(this->ui->connectionPill, &QPushButton::clicked, this, [lambdaRetranslate](bool) { lambdaRetranslate(); });
+
+    // if(auto query = this->core->database.oneshotStatement(R"(
+    //     SELECT msg, time_posix_ms from log_wsmessages
+    //     WHERE direction=0 AND kind=0
+    // )", {}); query.has_value()) {
+    //     while(query->next()) {
+    //         QString text = query->value(0).toString();
+    //         QDateTime time = QDateTime::fromMSecsSinceEpoch(query->value(1).toLongLong());
+    //         const QStringList messageContents = text.split(",");
+
+    //         QChar signifier;
+    //         if(messageContents[0].length() == 1) {
+    //             signifier = messageContents[0][0];
+    //         } else {
+    //             // abort due to non-character signifier
+    //             return;
+    //         }
+
+    //         QVector<qint64> integers;
+    //         integers.reserve(messageContents.size() - 1);
+    //         for(qsizetype i = 1; i < messageContents.size(); i++) {
+    //             bool ok = false;
+    //             qint64 val = messageContents[i].toLongLong(&ok);
+    //             if(ok) {
+    //                 integers.append(val);
+    //             } else {
+    //                 // abort due to non-integer
+    //                 return;
+    //             }
+    //         }
+
+    //         switch(signifier.unicode()) {
+    //             case 'R':
+    //                 // Received Message
+    //                 if(integers.size() >= 2) {
+    //                     // Nominally a message should be non-empty (>= 3) but we'll tolerate the empty case (== 2)
+    //                     this->messages.append(DscrMessage {
+    //                         time,
+    //                         integers[0],
+    //                         integers[1],
+    //                         integers.mid(2)
+    //                     });
+    //                 }
+    //                 break;
+    //         }
+    //     }
+    // }
+
+    this->core->dscrClient.register_(this->core->settings.get("dscrClient.callsign", 01445).toLongLong(), false);
     this->core->dscrClient.open(QUrl(this->core->settings.get("dscrClient.url", "wss://dscr-relay.dixonary.co.uk").toString()));
 }
 
@@ -312,6 +370,10 @@ void MainWindow::onDscrClientDscrMessageReceived(const QDateTime &time, const Ds
 }
 
 void MainWindow::pushToChatBrowser(const DscrMessage &msg) {
+    QScrollBar *vBar = this->ui->chatBrowser->verticalScrollBar();
+    int vBarOldPosition = vBar->value();
+    bool vBarOldAtBottom = vBarOldPosition == vBar->maximum();
+
     int avgCharWidth = this->ui->chatBrowser->fontMetrics().averageCharWidth();
     int sequenceWidth = avgCharWidth * (3 + 2);
 
@@ -336,6 +398,9 @@ void MainWindow::pushToChatBrowser(const DscrMessage &msg) {
     // messageFormat.setForeground(brush3);
 
     QTextCursor cur(this->ui->chatBrowser->document());
+    // Surround the whole edit in an edit block. This appears to eliminate a superlinear time penalty
+    // that scales with the number of insertText calls in the block.
+    cur.beginEditBlock();
     cur.movePosition(QTextCursor::End);
 
     cur.insertBlock(headerBlockFormat);
@@ -345,20 +410,27 @@ void MainWindow::pushToChatBrowser(const DscrMessage &msg) {
 
     cur.insertBlock(messageBlockFormat);
     Fe56RDesymbolized desym = fe56_reformatter_desymbolize(this->core->dictionary.fe56Dictionary, msg.symbols.constData(), msg.symbols.size());
-    QString str = QString::fromUtf8(QByteArrayView(desym.text.ptr, desym.text.size));
-    int positionOffset = cur.position();
-    cur.insertText(str, messageFormat);
+    QByteArrayView desymUtf8(desym.text.ptr, desym.text.size);
+    uintptr_t prev_end = 0;
     for(uintptr_t i = 0; i < desym.spans.size; i++) {
-        // FIXME in UTF-8 coordinates
         Fe56SymbolizerSpan_usize span = desym.spans.ptr[i];
-        QTextCharFormat symbolFormat;
-        symbolFormat.setProperty(UserTextFormatProperty::SignalIdqint64, msg.symbols[i]);
-        QTextCursor spanCursor(this->ui->chatBrowser->document());
-        spanCursor.setPosition(positionOffset + span.start);
-        spanCursor.setPosition(positionOffset + span.end, QTextCursor::KeepAnchor);
-        spanCursor.mergeCharFormat(symbolFormat);
+        if(prev_end < span.start) {
+            cur.insertText(QString::fromUtf8(desymUtf8.sliced(prev_end, span.start - prev_end)), messageFormat);
+        }
+        messageFormat.setProperty(UserTextFormatProperty::SignalIdqint64, msg.symbols[i]);
+        cur.insertText(QString::fromUtf8(desymUtf8.sliced(span.start, span.end - span.start)), messageFormat);
+        messageFormat.clearProperty(UserTextFormatProperty::SignalIdqint64);
+        prev_end = span.end;
+    }
+    if(prev_end < desymUtf8.size()) {
+        cur.insertText(QString::fromUtf8(desymUtf8.sliced(prev_end, desymUtf8.size() - prev_end)), messageFormat);
     }
     fe56_rdesymbolized_free(desym);
+    cur.endEditBlock();
+
+    if(vBarOldAtBottom) {
+        vBar->setValue(vBar->maximum());
+    }
 }
 
 void MainWindow::onDscrClientCallSignsChanged(const QDateTime &time, const QVector<qint64> &callSigns) {
