@@ -34,6 +34,8 @@ DscrClient::DscrClient(QObject *parent) :
 {
     QObject::connect(&this->socket, &QWebSocket::connected, this, &DscrClient::onSocketConnected);
     QObject::connect(&this->socket, &QWebSocket::disconnected, this, &DscrClient::onSocketDisconnected);
+    QObject::connect(&this->socket, &QWebSocket::pong, this, &DscrClient::onSocketPong);
+    QObject::connect(&this->socket, &QWebSocket::stateChanged, this, &DscrClient::onSocketStateChanged);
     QObject::connect(&this->socket, &QWebSocket::textMessageReceived, this, &DscrClient::onSocketTextMessageReceived);
     QObject::connect(&this->socket, &QWebSocket::errorOccurred, this, &DscrClient::onSocketErrorOccurred);
     QObject::connect(&this->timer, &QTimer::timeout, this, &DscrClient::onTimerTimeout);
@@ -110,6 +112,7 @@ qint64 DscrClient::getRegisteredCallsign() const {
 void DscrClient::onSocketConnected() {
     const QDateTime time = QDateTime::currentDateTime();
     qDebug() << time << "DscrClient::onSocketConnected";
+
     emit this->connected(time, this->url);
     this->transportStatus = TransportStatus::Connected;
     this->numConnectFailures = 0;
@@ -119,11 +122,22 @@ void DscrClient::onSocketConnected() {
     }
 }
 void DscrClient::onSocketDisconnected() {
+    const QDateTime time = QDateTime::currentDateTime();
+    qDebug() << time << "DscrClient::onSocketDisconnected";
+
     this->transportStatus = TransportStatus::Disconnected;
     this->registrationStatus = DscrClient::RegistrationStatus::Unregistered;
     if(this->connectionEnabled) {
         this->attemptConnect();
     }
+}
+void DscrClient::onSocketPong(quint64 elapsedTime, const QByteArray &payload) {
+    const QDateTime time = QDateTime::currentDateTime();
+    qDebug() << time << "DscrClient::onSocketPong" << elapsedTime << payload;
+}
+void DscrClient::onSocketStateChanged(QAbstractSocket::SocketState state) {
+    const QDateTime time = QDateTime::currentDateTime();
+    qDebug() << time << "DscrClient::onSocketStateChanged" << state;
 }
 void DscrClient::onSocketTextMessageReceived(const QString &text) {
     const QDateTime time = QDateTime::currentDateTime();
@@ -196,7 +210,8 @@ void DscrClient::onSocketTextMessageReceived(const QString &text) {
 }
 
 void DscrClient::onSocketErrorOccurred(QAbstractSocket::SocketError error) {
-    qDebug() << "DscrClient::onSocketErrorOccurred" << error;
+    const QDateTime time = QDateTime::currentDateTime();
+    qDebug() << time << "DscrClient::onSocketErrorOccurred" << error;
     this->socket.abort();
     this->transportStatus = DscrClient::TransportStatus::BackingOff;
     this->timer.setInterval(connectBackoffMs(this->numConnectFailures));
@@ -205,6 +220,9 @@ void DscrClient::onSocketErrorOccurred(QAbstractSocket::SocketError error) {
 }
 
 void DscrClient::onTimerTimeout() {
+    const QDateTime time = QDateTime::currentDateTime();
+    qDebug() << time << "DscrClient::onTimerTimeout";
+
     if(this->transportStatus == DscrClient::TransportStatus::Connecting) {
         this->socket.abort();
         this->transportStatus = DscrClient::TransportStatus::BackingOff;

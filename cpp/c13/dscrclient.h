@@ -49,6 +49,8 @@ signals:
 private slots:
     void onSocketConnected();
     void onSocketDisconnected();
+    void onSocketPong(quint64 elapsedTime, const QByteArray &payload);
+    void onSocketStateChanged(QAbstractSocket::SocketState state);
     void onSocketTextMessageReceived(const QString &text);
     void onSocketErrorOccurred(QAbstractSocket::SocketError error);
     void onTimerTimeout();

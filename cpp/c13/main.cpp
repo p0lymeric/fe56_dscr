@@ -1,9 +1,29 @@
 #include "mainwindow.h"
 
 #include <QApplication>
+#include <QDebug>
 #include <QDir>
+#include <QFile>
 #include <QFont>
 #include <QFontDatabase>
+#include <QMutex>
+
+static QtMessageHandler originalHandler = nullptr;
+static QFile logToFileHandle;
+static QMutex logToFileLock;
+
+void logToFile(QtMsgType type, const QMessageLogContext &context, const QString &msg) {
+    QString message = qFormatLogMessage(type, context, msg);
+    logToFileLock.lock();
+    logToFileHandle.write(qPrintable(message));
+    logToFileHandle.write("\n");
+    logToFileHandle.flush();
+    logToFileLock.unlock();
+
+    if (originalHandler) {
+        originalHandler(type, context, msg);
+    }
+}
 
 static void loadQrcFonts() {
     // In theory these loads aren't fallible as these fonts are packed into the executable
@@ -20,6 +40,14 @@ static void loadQrcFonts() {
 }
 
 int main(int argc, char *argv[]) {
+    // https://doc.qt.io/qt-6/qtlogging.html
+    logToFileHandle.setFileName(QDir(QCoreApplication::applicationDirPath()).filePath("c13.log"));
+    if(logToFileHandle.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        originalHandler = qInstallMessageHandler(&logToFile);
+    } else {
+        qWarning() << "Could not open c13.log for writing. The default log handler will be used.";
+    }
+
     QApplication a(argc, argv);
 
     // Perform initial styling
