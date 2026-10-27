@@ -27,23 +27,30 @@ static constexpr int connectBackoffMs(quint32 numConnectFailures) {
 }
 static const int CONNECT_TIMEOUT_MS = 5000;
 static const int MESSAGE_ACK_TIMEOUT_MS = 5000;
+static const int CLIENT_PING_CHECK_MS = 15000;
+static const int CLIENT_PING_TIMEOUT_CYCLE = 2; // 30 seconds
+static const int AUTOREGISTER_MAX_REATTEMPTS = 1; // 2 attempts
+static const int AUTOREGISTER_RETRY_MS = 30000;
 
 // public
 DscrClient::DscrClient(QObject *parent) :
     QObject(parent)
 {
+    QObject::connect(&this->socket, &QWebSocket::aboutToClose, this, &DscrClient::onSocketAboutToClose);
     QObject::connect(&this->socket, &QWebSocket::pong, this, &DscrClient::onSocketPong);
     QObject::connect(&this->socket, &QWebSocket::stateChanged, this, &DscrClient::onSocketStateChanged);
     QObject::connect(&this->socket, &QWebSocket::textMessageReceived, this, &DscrClient::onSocketTextMessageReceived);
     QObject::connect(&this->socket, &QWebSocket::errorOccurred, this, &DscrClient::onSocketErrorOccurred);
     QObject::connect(&this->timer, &QTimer::timeout, this, &DscrClient::onTimerTimeout);
+    QObject::connect(&this->clientPingWatchdogTimer, &QTimer::timeout, this, &DscrClient::onClientPingWatchdogTimeout);
     this->timer.setSingleShot(true);
 }
 
-void DscrClient::open(const QUrl &url) {
+void DscrClient::open(const QUrl &url, bool enableClientPingWatchdog) {
     qDebug() << "DscrClient::open" << url;
     if(this->clientState == DscrClient::ClientState::Disconnected) {
         this->connectionEnabled = true;
+        this->clientPingWatchdogEnabled = enableClientPingWatchdog;
         this->url = url;
         this->numConnectFailures = 0;
         this->attemptConnect();
@@ -61,6 +68,7 @@ void DscrClient::close() {
         this->socket.close(QWebSocketProtocol::CloseCodeNormal);
         this->timer.setInterval(MESSAGE_ACK_TIMEOUT_MS);
         this->timer.start();
+        this->clientPingWatchdogTimer.stop();
     }
 }
 
@@ -107,20 +115,24 @@ qint64 DscrClient::getRegisteredCallsign() const {
 }
 
 // private slots
+void DscrClient::onSocketAboutToClose() {
+    const QDateTime time = QDateTime::currentDateTime();
+    qDebug() << time << "DscrClient::onSocketAboutToClose" << this->socket.closeCode() << this->socket.closeReason();
+}
+
 void DscrClient::onSocketPong(quint64 elapsedTime, const QByteArray &payload) {
     const QDateTime time = QDateTime::currentDateTime();
     qDebug() << time << "DscrClient::onSocketPong" << elapsedTime << payload;
 
-    // TODO for an unreliable connection we'll need to periodically test connection liveness
-    // so we can sense a connection drop and reconnect.
+    this->clientPingWatchdogPongOutstandingCycles = 0;
 }
 
 void DscrClient::onSocketStateChanged(QAbstractSocket::SocketState state) {
     const QDateTime time = QDateTime::currentDateTime();
-    qDebug() << time << "DscrClient::onSocketStateChanged" << state;
 
     switch(state) {
         case QAbstractSocket::UnconnectedState: {
+            qDebug() << time << "DscrClient::onSocketStateChanged" << state;
             // triggered on disconnected
             if(this->connectionEnabled) {
                 this->clientState = DscrClient::ClientState::BackingOff;
@@ -132,9 +144,12 @@ void DscrClient::onSocketStateChanged(QAbstractSocket::SocketState state) {
                 this->clientState = DscrClient::ClientState::Disconnected;
                 this->timer.stop();
             }
+            this->clientPingWatchdogTimer.stop();
+            this->numRegistrationFailures = 0;
             break;
         }
         case QAbstractSocket::ConnectedState: {
+            qDebug() << time << "DscrClient::onSocketStateChanged" << state << this->socket.localAddress() << this->socket.localPort() << this->socket.peerAddress() << this->socket.peerPort();
             // triggered on connected
             emit this->connected(time, this->url);
             this->clientState = DscrClient::ClientState::Unregistered;
@@ -143,9 +158,15 @@ void DscrClient::onSocketStateChanged(QAbstractSocket::SocketState state) {
             if(this->registrationEnabled) {
                 this->attemptRegister();
             }
+            if(this->clientPingWatchdogEnabled) {
+                this->clientPingWatchdogPongOutstandingCycles = 0;
+                this->clientPingWatchdogTimer.setInterval(CLIENT_PING_CHECK_MS);
+                this->clientPingWatchdogTimer.start();
+            }
             break;
         }
         default:
+            qDebug() << time << "DscrClient::onSocketStateChanged" << state;
             break;
     }
 }
@@ -200,18 +221,27 @@ void DscrClient::onSocketTextMessageReceived(const QString &text) {
                 this->registeredCallSign = integers[0];
             }
             this->everRegistered = true;
+            this->numRegistrationFailures = 0;
             this->timer.stop();
             break;
         case 'E':
             // Reconnect OK
             this->clientState = DscrClient::ClientState::Registered;
             this->everRegistered = true;
+            this->numRegistrationFailures = 0;
             this->timer.stop();
             break;
         case 'U':
             // Call sign in use
-            this->clientState = DscrClient::ClientState::FailedAutoregister;
             this->timer.stop();
+            if(this->numRegistrationFailures < AUTOREGISTER_MAX_REATTEMPTS) {
+                this->clientState = DscrClient::ClientState::Unregistered;
+                this->numRegistrationFailures++;
+                this->timer.setInterval(AUTOREGISTER_RETRY_MS);
+                this->timer.start();
+            } else {
+                this->clientState = DscrClient::ClientState::FailedAutoregister;
+            }
             break;
         case 'C':
             // Call signs update
@@ -222,7 +252,7 @@ void DscrClient::onSocketTextMessageReceived(const QString &text) {
 
 void DscrClient::onSocketErrorOccurred(QAbstractSocket::SocketError error) {
     const QDateTime time = QDateTime::currentDateTime();
-    qDebug() << time << "DscrClient::onSocketErrorOccurred" << error;
+    qDebug() << time << "DscrClient::onSocketErrorOccurred" << error << this->socket.errorString();
 }
 
 void DscrClient::onTimerTimeout() {
@@ -240,8 +270,13 @@ void DscrClient::onTimerTimeout() {
             this->attemptConnect();
             break;
         }
+        case ClientState::Unregistered: {
+            // we received U but want to retry in case the server doesn't know we recently dropped
+            this->attemptRegister();
+            break;
+        }
         case ClientState::Registering: {
-            // wait for intervention
+            // the server did not acknowledge our connection message at all
             this->clientState = DscrClient::ClientState::FailedAutoregister;
             break;
         }
@@ -254,6 +289,21 @@ void DscrClient::onTimerTimeout() {
         default:
             break;
     }
+}
+
+void DscrClient::onClientPingWatchdogTimeout() {
+    const QDateTime time = QDateTime::currentDateTime();
+
+    if(this->clientPingWatchdogPongOutstandingCycles == 0) {
+        qDebug() << time << "DscrClient::onClientPingWatchdogTimeout" << "ping!";
+        this->socket.ping();
+    } else if(this->clientPingWatchdogPongOutstandingCycles < CLIENT_PING_TIMEOUT_CYCLE) {
+        qDebug() << time << "DscrClient::onClientPingWatchdogTimeout" << "no pong" << this->clientPingWatchdogPongOutstandingCycles;
+    } else {
+        qDebug() << time << "DscrClient::onClientPingWatchdogTimeout" << "pong timeout!";
+        this->socket.abort();
+    }
+    this->clientPingWatchdogPongOutstandingCycles++;
 }
 
 // private
@@ -288,10 +338,13 @@ void DscrClient::reset() {
     this->connectionEnabled = false;
     this->registrationEnabled = false;
     this->fastReregistrationEnabled = false;
+    this->clientPingWatchdogEnabled = false;
     this->desiredCallSign = 0;
 
     this->clientState = DscrClient::ClientState::Disconnected;
     this->registeredCallSign = 0;
     this->numConnectFailures = 0;
     this->everRegistered = false;
+    this->clientPingWatchdogPongOutstandingCycles = 0;
+    this->numRegistrationFailures = 0;
 }

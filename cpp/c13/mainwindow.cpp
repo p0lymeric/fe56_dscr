@@ -130,7 +130,7 @@ MainWindow::MainWindow(MainCore *core, QWidget *parent) :
     // }
 
     this->core->dscrClient.register_(this->core->settings.get("dscrClient.callsign", 01445).toLongLong(), false);
-    this->core->dscrClient.open(QUrl(this->core->settings.get("dscrClient.url", "wss://dscr-relay.dixonary.co.uk").toString()));
+    this->core->dscrClient.open(QUrl(this->core->settings.get("dscrClient.url", "wss://dscr-relay.dixonary.co.uk").toString()), true);
 }
 
 MainWindow::~MainWindow() {
