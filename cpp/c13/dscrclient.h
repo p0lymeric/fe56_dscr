@@ -18,23 +18,20 @@ class DscrClient : public QObject {
     Q_OBJECT
 
 public:
-    enum class TransportStatus { Disconnected, Connecting, BackingOff, Connected };
-    Q_ENUM(TransportStatus)
-    enum class RegistrationStatus { Unregistered, Registering, FailedAutoregister, Registered };
-    Q_ENUM(RegistrationStatus)
+    enum class ClientState { Disconnected, Connecting, BackingOff, Unregistered, Registering, FailedAutoregister, Registered, Disconnecting };
+    Q_ENUM(ClientState)
 
     explicit DscrClient(QObject *parent = nullptr);
 
     void open(const QUrl &url);
     void close();
 
+
     void register_(qint64 callSign, bool tryFastReregister);
     void sendWsTextMessage(const QString &text);
     void sendDscrMessage(const QVector<qint64> &symbols);
 
-    TransportStatus getTransportStatus() const;
-    RegistrationStatus getRegistrationStatus() const;
-    bool isConnectedAndRegistered() const;
+    ClientState getClientState() const;
     const QUrl &getUrl() const;
 
     qint64 getRegisteredCallsign() const;
@@ -47,8 +44,6 @@ signals:
     void textMessageReceived(const QDateTime &time, const QString &text);
 
 private slots:
-    void onSocketConnected();
-    void onSocketDisconnected();
     void onSocketPong(quint64 elapsedTime, const QByteArray &payload);
     void onSocketStateChanged(QAbstractSocket::SocketState state);
     void onSocketTextMessageReceived(const QString &text);
@@ -58,6 +53,7 @@ private slots:
 private:
     void attemptConnect();
     void attemptRegister();
+    void reset();
 
     // Signal generators
     QWebSocket socket;
@@ -71,8 +67,7 @@ private:
     qint64 desiredCallSign = 0;
 
     // States
-    TransportStatus transportStatus = TransportStatus::Disconnected;
-    RegistrationStatus registrationStatus = RegistrationStatus::Unregistered;
+    ClientState clientState = ClientState::Disconnected;
     qint64 registeredCallSign = 0;
     quint32 numConnectFailures = 0;
     bool everRegistered = false;
