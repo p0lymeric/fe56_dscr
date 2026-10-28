@@ -53,6 +53,12 @@ if(WIN32)
 endif()
 target_include_directories(c13 PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../../rust/crates/fe56_capi/include)
 
+if(MSVC)
+    target_compile_options(${PROJECT_NAME} PRIVATE /W4 /permissive-)
+else()
+    target_compile_options(${PROJECT_NAME} PRIVATE -Wall -Wextra -Wpedantic)
+endif()
+
 install(TARGETS c13
     BUNDLE  DESTINATION .
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}

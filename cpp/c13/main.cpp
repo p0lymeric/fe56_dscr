@@ -6,13 +6,16 @@
 #include <QFile>
 #include <QFont>
 #include <QFontDatabase>
+#include <QLockFile>
+#include <QMessageBox>
 #include <QMutex>
 
 static QtMessageHandler originalHandler = nullptr;
 static QFile logToFileHandle;
 static QMutex logToFileLock;
 
-void logToFile(QtMsgType type, const QMessageLogContext &context, const QString &msg) {
+static void logToFile(QtMsgType type, const QMessageLogContext &context, const QString &msg) {
+    // https://doc.qt.io/qt-6/qtlogging.html
     QString message = qFormatLogMessage(type, context, msg);
     logToFileLock.lock();
     logToFileHandle.write(qPrintable(message));
@@ -40,15 +43,11 @@ static void loadQrcFonts() {
 }
 
 int main(int argc, char *argv[]) {
-    // https://doc.qt.io/qt-6/qtlogging.html
-    logToFileHandle.setFileName(QDir(QCoreApplication::applicationDirPath()).filePath("c13.log"));
-    if(logToFileHandle.open(QIODevice::WriteOnly | QIODevice::Text)) {
-        originalHandler = qInstallMessageHandler(&logToFile);
-    } else {
-        qWarning() << "Could not open c13.log for writing. The default log handler will be used.";
-    }
-
     QApplication a(argc, argv);
+
+    // TODO portable or AppData/XDG_DATA_HOME/Application Support
+    QDir appDataRoot(QCoreApplication::applicationDirPath());
+    QString filePrefix = "c13";
 
     // Perform initial styling
     QApplication::setStyle("fusion");
@@ -65,11 +64,29 @@ int main(int argc, char *argv[]) {
     loadQrcFonts();
     QApplication::setFont(QFont("B612 Mono", 12));
 
+    // c13.lock protects against concurrent app launches mutually clobbering c13.log and c13.sqlite3
+    // This could be generalized in the future if the app were to receive a file prefix argument
+    QLockFile processLock(appDataRoot.filePath(QString("%1.lock").arg(filePrefix)));
+    if(!processLock.tryLock()) {
+        qCritical() << "Could not acquire c13.lock. Maybe another instance of C13 is already running?";
+        QMessageBox::critical(nullptr, "C13", "Could not acquire c13.lock. Maybe another instance of C13 is already running?");
+        return 1;
+    }
+
+    // Try to open a log file
+    logToFileHandle.setFileName(appDataRoot.filePath(QString("%1.log").arg(filePrefix)));
+    if(logToFileHandle.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        originalHandler = qInstallMessageHandler(&logToFile);
+    } else {
+        qWarning() << "Could not open c13.log for writing. The default log handler will be used.";
+    }
+
     // Initialize the core
     MainCore c;
-    // TODO portable or AppData/XDG_DATA_HOME/Application Support
-    if(!c.open(QDir(QCoreApplication::applicationDirPath()).filePath("c13.sqlite3"))) {
-        // TODO error dialog ("Could not load or create c13.sqlite3")
+    if(!c.open(appDataRoot.filePath(QString("%1.sqlite3").arg(filePrefix)))) {
+        // TODO give more context around the error (newer schema, error preparing statements, etc.)
+        qCritical() << "Could not load or create c13.sqlite3. Maybe the database is malformed or targets a newer version?";
+        QMessageBox::critical(nullptr, "C13", "Could not load or create c13.sqlite3. Maybe the database is malformed or targets a newer version?");
         return 1;
     }
 

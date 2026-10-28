@@ -111,13 +111,13 @@ impl DictionaryMut for ShadowDictionary {
         false
     }
 
-    fn relink(&mut self, from: SymbolT, to: SymbolT) -> bool {
-        todo!()
-    }
+    // fn relink(&mut self, from: SymbolT, to: SymbolT) -> bool {
+    //     todo!()
+    // }
 
-    fn edit(&mut self, id: SymbolT, f: &mut dyn FnMut(&mut Definition)) -> bool {
-        todo!()
-    }
+    // fn edit(&mut self, id: SymbolT, f: &mut dyn FnMut(&mut Definition)) -> bool {
+    //     todo!()
+    // }
 
     fn set_global_format(&mut self, formatting: Formatting) -> bool {
         self.global_format = formatting;

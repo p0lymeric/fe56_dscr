@@ -110,8 +110,8 @@ pub trait Dictionary {
 pub trait DictionaryMut {
     fn add(&mut self, id: SymbolT, def: Definition) -> bool;
     fn remove(&mut self, id: SymbolT) -> bool;
-    fn relink(&mut self, from: SymbolT, to: SymbolT) -> bool;
-    fn edit(&mut self, id: SymbolT, f: &mut dyn FnMut(&mut Definition)) -> bool;
+    // fn relink(&mut self, from: SymbolT, to: SymbolT) -> bool;
+    // fn edit(&mut self, id: SymbolT, f: &mut dyn FnMut(&mut Definition)) -> bool;
 
     fn set_global_format(&mut self, formatting: Formatting) -> bool;
 }

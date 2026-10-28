@@ -79,9 +79,11 @@ bool DictionaryTableModel::setData(const QModelIndex &index, const QVariant &val
     }
 
     // TODO eventually support these options:
-    // dictionaryEditor.acceptEmptyOrAllWhitespaceWords
-    // dictionaryEditor.acceptWordsContainingMixtureOfWhitespaceAndNonWhitespace
-    // dictionaryEditor.acceptWordsContaining|@
+    // dictionaryEditor.acceptEmptyWords (probably not)
+    // dictionaryEditor.acceptAllWhitespaceWords (probably not)
+    // dictionaryEditor.acceptWordsContaining(Non)WhitespaceMixture
+    // dictionaryEditor.acceptWordsContaining0To9
+    // dictionaryEditor.acceptWordsContaining|Or@
     // dictionaryEditor.acceptCasefoldedDuplicates
     // dictionaryEditor.acceptExactDuplicates
     // dictionaryEditor.acceptWordsLongerThan16Codepoints
