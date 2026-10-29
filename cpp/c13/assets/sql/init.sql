@@ -47,6 +47,13 @@ CREATE TABLE memo_transmissions( -- List each valid M/R transmission not duplica
     FOREIGN KEY(rx_wsmessage_id) REFERENCES log_wsmessages(id) ON DELETE RESTRICT
 ) STRICT;
 
+-- Meta state
+CREATE TABLE meta_completion_flags( -- Flags for post-migration and one-time tasks
+    key TEXT NOT NULL PRIMARY KEY
+) STRICT, WITHOUT ROWID;
+-- INSERT INTO meta_completion_flags(key) VALUES('transmissionProcessor.regenerateMemoTransmissions');
+-- INSERT INTO meta_completion_flags(key) VALUES('wsMessageLog.applyRowCompression');
+
 -- User data
 CREATE TABLE user_dictionary( -- The translation dictionary
     signal INTEGER PRIMARY KEY,

@@ -1,5 +1,6 @@
 #include "database/wsmessagelog.h"
 #include "dscrtypes.h"
+#include <limits>
 
 WsMessageLog::WsMessageLog(QObject *parent) : QObject{parent} {
 }
@@ -39,6 +40,46 @@ bool WsMessageLog::init(Database *db, Settings *settings) {
         return false;
     }
 
+    if(!this->db->scopedTransaction([&](Database &db) -> bool {
+        if(auto flag = settings->testAndSetMetaFlag("wsMessageLog.applyRowCompression"); flag.has_value()) {
+            if(!*flag) {
+                auto select = db.prepareStatement("SELECT id, msg FROM log_wsmessages WHERE id>:id AND kind=0 ORDER BY id LIMIT 1");
+                auto update = db.prepareStatement("UPDATE log_wsmessages SET msg=:msg, kind=1 WHERE id=:id");
+                if(!select.has_value() || !update.has_value()) {
+                    return false;
+                }
+
+                qint64 id = std::numeric_limits<qint64>::min();
+
+                while(true) {
+                    select->bindValue(":id", id);
+                    if(!select->exec()) {
+                        return false;
+                    }
+                    if(!select->next()) {
+                        return true;
+                    }
+                    id = select->value(0).toLongLong();
+                    const QString text = select->value(1).toString();
+                    select->finish();
+
+                    if(auto dscrMessage = DscrMessage::decodeWsMessage(text); dscrMessage.has_value()) {
+                        update->bindValue(":msg", dscrMessage->encodePacked());
+                        update->bindValue(":id", id);
+                        if(!update->exec()) {
+                            return false;
+                        }
+                    }
+                }
+            }
+        } else {
+            return false;
+        }
+        return true;
+    })) {
+        return false;
+    }
+
     return true;
 }
 
@@ -68,8 +109,7 @@ void WsMessageLog::onDscrClientTextMessageSent(const QDateTime &time, const QStr
         return;
     }
     if(auto msg = DscrMessage::decodeWsMessage(text); msg.has_value()) {
-        // this->insertWsMessageAndGetId(this->sessionId.value(), time, 1, 1, msg->encodePacked());
-        if(auto msgId = this->insertWsMessageAndGetId(this->sessionId.value(), time, 1, 0, text); msgId.has_value()) {
+        if(auto msgId = this->insertWsMessageAndGetId(this->sessionId.value(), time, 1, 1, msg->encodePacked()); msgId.has_value()) {
             emit dscrTransmissionSent(time, *msgId, *msg);
         }
     } else {
@@ -82,8 +122,7 @@ void WsMessageLog::onDscrClientTextMessageReceived(const QDateTime &time, const 
         return;
     }
     if(auto msg = DscrMessage::decodeWsMessage(text); msg.has_value()) {
-        // this->insertWsMessageAndGetId(this->sessionId.value(), time, 0, 1, msg->encodePacked());
-        if(auto msgId = this->insertWsMessageAndGetId(this->sessionId.value(), time, 0, 0, text); msgId.has_value()) {
+        if(auto msgId = this->insertWsMessageAndGetId(this->sessionId.value(), time, 0, 1, msg->encodePacked()); msgId.has_value()) {
             emit dscrTransmissionReceived(time, *msgId, *msg);
         }
     } else {

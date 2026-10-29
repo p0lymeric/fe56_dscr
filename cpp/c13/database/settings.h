@@ -2,6 +2,7 @@
 
 #include "database/database.h"
 
+#include <optional>
 #include <QObject>
 #include <QVariant>
 
@@ -16,6 +17,8 @@ public:
     QVariant get(const QString &key, const QVariant &default_);
     bool upsert(const QString &key, const QVariant &val);
 
+    std::optional<bool> testAndSetMetaFlag(const QString &key);
+
 signals:
 
 private:
@@ -23,4 +26,6 @@ private:
 
     QSqlQuery prepGetSetting;
     QSqlQuery prepUpsertSetting;
+
+    QSqlQuery prepTestAndSetMetaFlag;
 };

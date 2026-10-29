@@ -25,6 +25,18 @@ bool Settings::init(Database *db) {
         return false;
     }
 
+    if(auto stmt = this->db->prepareStatement(R"(
+        INSERT INTO meta_completion_flags(key)
+        VALUES(:key)
+        ON CONFLICT(key)
+        DO NOTHING
+        RETURNING key
+    )"); stmt.has_value()) {
+        this->prepTestAndSetMetaFlag = std::move(*stmt);
+    } else {
+        return false;
+    }
+
     return true;
 }
 
@@ -57,4 +69,18 @@ bool Settings::upsert(const QString &key, const QVariant &val) {
     }
     this->prepUpsertSetting.finish();
     return true;
+}
+
+std::optional<bool> Settings::testAndSetMetaFlag(const QString &key) {
+    this->prepTestAndSetMetaFlag.bindValue(":key", key);
+    if(!this->prepTestAndSetMetaFlag.exec()) {
+        this->prepTestAndSetMetaFlag.finish();
+        return std::nullopt;
+    }
+    if(!this->prepTestAndSetMetaFlag.next()) {
+        this->prepTestAndSetMetaFlag.finish();
+        return true;
+    }
+    this->prepTestAndSetMetaFlag.finish();
+    return false;
 }
