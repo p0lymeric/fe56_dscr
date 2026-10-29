@@ -1,4 +1,5 @@
 #include "database/wsmessagelog.h"
+#include "dscrtypes.h"
 
 WsMessageLog::WsMessageLog(QObject *parent) : QObject{parent} {
 }
@@ -31,13 +32,63 @@ bool WsMessageLog::init(Database *db, Settings *settings) {
     if(auto stmt = this->db->prepareStatement(R"(
         INSERT INTO log_wsmessages(session_id, time_posix_ms, direction, kind, msg)
         VALUES(:session_id, :time_posix_ms, :direction, :kind, :msg)
+        RETURNING id
     )"); stmt.has_value()) {
-        this->prepInsertWsMessage = std::move(*stmt);
+        this->prepInsertWsMessageAndGetId = std::move(*stmt);
     } else {
         return false;
     }
 
     return true;
+}
+
+void WsMessageLog::onDscrClientConnected(const QDateTime &time, const QUrl &url) {
+    this->sessionId = std::nullopt;
+
+    this->db->scopedTransaction([&](Database &) {
+        std::optional<qint64> serverId = this->getOrInsertServer(url);
+        if(!serverId.has_value()) {
+            return false;
+        }
+
+        std::optional<qint64> sessionId = this->insertAndGetSession(serverId.value(), time);
+        if(!sessionId.has_value()) {
+            return false;
+        }
+
+        this->sessionId = sessionId;
+        emit this->connected(time, *sessionId);
+
+        return true;
+    });
+}
+
+void WsMessageLog::onDscrClientTextMessageSent(const QDateTime &time, const QString &text) {
+    if(!this->sessionId.has_value()) {
+        return;
+    }
+    if(auto msg = DscrMessage::decodeWsMessage(text); msg.has_value()) {
+        // this->insertWsMessageAndGetId(this->sessionId.value(), time, 1, 1, msg->encodePacked());
+        if(auto msgId = this->insertWsMessageAndGetId(this->sessionId.value(), time, 1, 0, text); msgId.has_value()) {
+            emit dscrTransmissionSent(time, *msgId, *msg);
+        }
+    } else {
+        this->insertWsMessageAndGetId(this->sessionId.value(), time, 1, 0, text);
+    }
+}
+
+void WsMessageLog::onDscrClientTextMessageReceived(const QDateTime &time, const QString &text) {
+    if(!this->sessionId.has_value()) {
+        return;
+    }
+    if(auto msg = DscrMessage::decodeWsMessage(text); msg.has_value()) {
+        // this->insertWsMessageAndGetId(this->sessionId.value(), time, 0, 1, msg->encodePacked());
+        if(auto msgId = this->insertWsMessageAndGetId(this->sessionId.value(), time, 0, 0, text); msgId.has_value()) {
+            emit dscrTransmissionReceived(time, *msgId, *msg);
+        }
+    } else {
+        this->insertWsMessageAndGetId(this->sessionId.value(), time, 0, 0, text);
+    }
 }
 
 std::optional<qint64> WsMessageLog::getOrInsertServer(const QUrl &url) {
@@ -74,55 +125,22 @@ std::optional<qint64> WsMessageLog::insertAndGetSession(qint64 serverId, const Q
     }
 }
 
-bool WsMessageLog::insertWsMessage(qint64 sessionId, const QDateTime &time, const QString &text, int direction) {
-    this->prepInsertWsMessage.bindValue(":session_id", sessionId);
-    this->prepInsertWsMessage.bindValue(":time_posix_ms", time.toMSecsSinceEpoch());
-    this->prepInsertWsMessage.bindValue(":direction", direction);
-    this->prepInsertWsMessage.bindValue(":kind", 0); // WsText
-    this->prepInsertWsMessage.bindValue(":msg", text);
-    if(!this->prepInsertWsMessage.exec()) {
-        this->prepInsertWsMessage.finish();
-        return false;
+std::optional<qint64> WsMessageLog::insertWsMessageAndGetId(qint64 sessionId, const QDateTime &time, int direction, int kind, const QVariant &data) {
+    this->prepInsertWsMessageAndGetId.bindValue(":session_id", sessionId);
+    this->prepInsertWsMessageAndGetId.bindValue(":time_posix_ms", time.toMSecsSinceEpoch());
+    this->prepInsertWsMessageAndGetId.bindValue(":direction", direction);
+    this->prepInsertWsMessageAndGetId.bindValue(":kind", kind); // WsText
+    this->prepInsertWsMessageAndGetId.bindValue(":msg", data);
+    if(!this->prepInsertWsMessageAndGetId.exec() || !this->prepInsertWsMessageAndGetId.next()) {
+        this->prepInsertWsMessageAndGetId.finish();
+        return std::nullopt;
     }
-    return true;
-}
-
-void WsMessageLog::onDscrClientConnected(const QDateTime &time, const QUrl &url) {
-    this->sessionId = std::nullopt;
-
-    this->db->scopedTransaction([&](Database &) {
-        std::optional<qint64> serverId = this->getOrInsertServer(url);
-        if(!serverId.has_value()) {
-            return false;
-        }
-
-        std::optional<qint64> sessionId = this->insertAndGetSession(serverId.value(), time);
-        if(!sessionId.has_value()) {
-            return false;
-        }
-
-        this->sessionId = sessionId.value();
-
-        return true;
-    });
-}
-
-void WsMessageLog::onDscrClientTextMessageSent(const QDateTime &time, const QString &text) {
-    if(!this->sessionId.has_value()) {
-        return;
+    bool ok = false;
+    qint64 msgId = this->prepInsertWsMessageAndGetId.value(0).toLongLong(&ok);
+    this->prepInsertWsMessageAndGetId.finish();
+    if(ok) {
+        return msgId;
+    } else {
+        return std::nullopt;
     }
-    this->db->scopedTransaction([&](Database &) {
-        this->insertWsMessage(this->sessionId.value(), time, text, 1);
-        return true;
-    });
-}
-
-void WsMessageLog::onDscrClientTextMessageReceived(const QDateTime &time, const QString &text) {
-    if(!this->sessionId.has_value()) {
-        return;
-    }
-   this->db->scopedTransaction([&](Database &) {
-        this->insertWsMessage(this->sessionId.value(), time, text, 0);
-        return true;
-    });
 }

@@ -15,11 +15,13 @@ qt_add_executable(c13
     assets/assets.qrc
 
     dscrclient.h dscrclient.cpp
+    dscrtypes.h dscrtypes.cpp
 
     database/database.h database/database.cpp
     database/dictionary.h database/dictionary.cpp
     database/settings.h database/settings.cpp
     database/wsmessagelog.h database/wsmessagelog.cpp
+    database/transmissionprocessor.h database/transmissionprocessor.cpp
 
     mainwindow.h mainwindow.cpp mainwindow.ui
     serverconnectdialog.h serverconnectdialog.cpp serverconnectdialog.ui

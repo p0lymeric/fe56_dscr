@@ -26,8 +26,8 @@ MainWindow::MainWindow(MainCore *core, QWidget *parent) :
     this->ui->setupUi(this);
 
     QObject::connect(this->ui->messageEditor, &QTextEdit::textChanged, this, &MainWindow::onMessageEditorTextChanged);
-    QObject::connect(&this->core->dscrClient, &DscrClient::dscrMessageReceived, this, &MainWindow::onDscrClientDscrMessageReceived);
-    QObject::connect(&this->core->dscrClient, &DscrClient::callSignsChanged, this, &MainWindow::onDscrClientCallSignsChanged);
+    QObject::connect(&this->core->transmissionProcessor, &TransmissionProcessor::dscrTransmissionReceived, this, &MainWindow::onDscrClientDscrTransmissionReceived);
+    QObject::connect(&this->core->transmissionProcessor, &TransmissionProcessor::callSignsChanged, this, &MainWindow::onDscrClientCallSignsChanged);
 
     this->ui->usersList->setModel(&this->usersModel);
     this->ui->usersList->setEditTriggers(QAbstractItemView::NoEditTriggers);
@@ -117,7 +117,7 @@ MainWindow::MainWindow(MainCore *core, QWidget *parent) :
     //                 // Received Message
     //                 if(integers.size() >= 2) {
     //                     // Nominally a message should be non-empty (>= 3) but we'll tolerate the empty case (== 2)
-    //                     this->messages.append(DscrMessage {
+    //                     this->messages.append(DscrTransmission {
     //                         time,
     //                         integers[0],
     //                         integers[1],
@@ -280,7 +280,7 @@ bool MainWindow::eventFilter(QObject *watched, QEvent *event) {
                 if((eventKey->key() == Qt::Key_Enter || eventKey->key() == Qt::Key_Return) && (eventKey->modifiers() & Qt::ControlModifier)) {
                     if(this->canSend) {
                         qDebug() << "Send" << this->signalsToSend;
-                        this->core->dscrClient.sendDscrMessage(this->signalsToSend);
+                        this->core->dscrClient.sendDscrTransmission(this->signalsToSend);
                         this->ui->messageEditor->clear();
                         this->ui->signalViz->clear();
                     } else {
@@ -364,12 +364,12 @@ void MainWindow::onMessageEditorTextChanged() {
     ui->signalViz->setText(signalVizText);
 }
 
-void MainWindow::onDscrClientDscrMessageReceived(const QDateTime &time, const DscrMessage &msg) {
+void MainWindow::onDscrClientDscrTransmissionReceived(const QDateTime &time, const DscrTransmission &msg) {
     this->messages.append(msg);
     this->pushToChatBrowser(msg);
 }
 
-void MainWindow::pushToChatBrowser(const DscrMessage &msg) {
+void MainWindow::pushToChatBrowser(const DscrTransmission &msg) {
     QScrollBar *vBar = this->ui->chatBrowser->verticalScrollBar();
     int vBarOldPosition = vBar->value();
     bool vBarOldAtBottom = vBarOldPosition == vBar->maximum();

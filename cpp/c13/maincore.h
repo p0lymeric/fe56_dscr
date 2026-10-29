@@ -3,6 +3,7 @@
 #include "database/database.h"
 #include "database/settings.h"
 #include "database/dictionary.h"
+#include "database/transmissionprocessor.h"
 #include "database/wsmessagelog.h"
 #include "dscrclient.h"
 
@@ -21,6 +22,7 @@ public:
     Settings settings;
     Dictionary dictionary;
     WsMessageLog wsMessageLog;
+    TransmissionProcessor transmissionProcessor;
     DscrClient dscrClient;
 
 signals:

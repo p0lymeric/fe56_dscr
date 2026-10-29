@@ -5,6 +5,10 @@ MainCore::MainCore(QObject *parent) : QObject{parent} {
     QObject::connect(&this->dscrClient, &DscrClient::connected, &this->wsMessageLog, &WsMessageLog::onDscrClientConnected);
     QObject::connect(&this->dscrClient, &DscrClient::textMessageSent, &this->wsMessageLog, &WsMessageLog::onDscrClientTextMessageSent);
     QObject::connect(&this->dscrClient, &DscrClient::textMessageReceived, &this->wsMessageLog, &WsMessageLog::onDscrClientTextMessageReceived);
+
+    QObject::connect(&this->wsMessageLog, &WsMessageLog::connected, &this->transmissionProcessor, &TransmissionProcessor::onWsMessageLogConnected);
+    QObject::connect(&this->wsMessageLog, &WsMessageLog::dscrTransmissionSent, &this->transmissionProcessor, &TransmissionProcessor::onWsMessageLogDscrTransmissionSent);
+    QObject::connect(&this->wsMessageLog, &WsMessageLog::dscrTransmissionReceived, &this->transmissionProcessor, &TransmissionProcessor::onWsMessageLogDscrTransmissionReceived);
 }
 
 MainCore::~MainCore() {
@@ -85,6 +89,10 @@ bool MainCore::open(const QString &dbPath) {
     }
 
     if(!this->wsMessageLog.init(&this->database, &this->settings)) {
+        return false;
+    }
+
+    if(!this->transmissionProcessor.init(&this->database, &this->settings)) {
         return false;
     }
 

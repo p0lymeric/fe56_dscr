@@ -12,7 +12,7 @@ class Database : public QObject {
 
 public:
     static const qint32 APPLICATION_ID = 0x0C13FE56;
-    static const qint32 MAX_USER_VERSION = 1;
+    static const qint32 MAX_USER_VERSION = 2;
 
     explicit Database(QObject *parent = nullptr);
     ~Database() override;

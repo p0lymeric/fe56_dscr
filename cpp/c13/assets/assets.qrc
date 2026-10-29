@@ -13,5 +13,6 @@
     </qresource>
     <qresource prefix="/sql">
         <file alias="init.sql">sql/init.sql</file>
+        <file alias="migrate_0001_to_0002.sql">sql/migrate_0001_to_0002.sql</file>
     </qresource>
 </RCC>

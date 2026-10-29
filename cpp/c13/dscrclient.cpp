@@ -1,4 +1,5 @@
 #include "dscrclient.h"
+#include "dscrtypes.h"
 
 #include <QDebug>
 
@@ -81,15 +82,7 @@ void DscrClient::register_(qint64 callSign, bool tryFastReregister) {
     this->attemptRegister();
 }
 
-void DscrClient::sendWsTextMessage(const QString &text) {
-    const QDateTime time = QDateTime::currentDateTime();
-    qDebug() << time << "DscrClient::sendWsTextMessage" << text;
-
-    emit this->textMessageSent(time, text);
-    this->socket.sendTextMessage(text);
-}
-
-void DscrClient::sendDscrMessage(const QVector<qint64> &symbols) {
+void DscrClient::sendDscrTransmission(const QVector<qint64> &symbols) {
     if(this->clientState != DscrClient::ClientState::Registered) {
         return;
     }
@@ -177,48 +170,18 @@ void DscrClient::onSocketTextMessageReceived(const QString &text) {
 
     emit this->textMessageReceived(time, text);
 
-    const QStringList messageContents = text.split(",");
-
-    QChar signifier;
-    if(messageContents[0].length() == 1) {
-        signifier = messageContents[0][0];
-    } else {
-        // abort due to non-character signifier
+    std::optional<DscrMessage> msg = DscrMessage::decodeWsMessage(text);
+    if(!msg.has_value()) {
         return;
     }
 
-    QVector<qint64> integers;
-    integers.reserve(messageContents.size() - 1);
-    for(qsizetype i = 1; i < messageContents.size(); i++) {
-        bool ok = false;
-        qint64 val = messageContents[i].toLongLong(&ok);
-        if(ok) {
-            integers.append(val);
-        } else {
-            // abort due to non-integer
-            return;
-        }
-    }
-
-    switch(signifier.unicode()) {
-        case 'R':
-            // Received Message
-            if(integers.size() >= 2) {
-                // Nominally a message should be non-empty (>= 3) but we'll tolerate the empty case (== 2)
-                emit this->dscrMessageReceived(time, DscrMessage {
-                    time,
-                    integers[0],
-                    integers[1],
-                    integers.mid(2)
-                });
-            }
-            break;
+    switch(msg->signifier) {
         case 'K':
             // Call sign OK
             this->clientState = DscrClient::ClientState::Registered;
-            if(integers.size() >= 1) {
+            if(msg->integers.size() >= 1) {
                 // TODO should verify that the ack'd callsign was our desired one
-                this->registeredCallSign = integers[0];
+                this->registeredCallSign = msg->integers[0];
             }
             this->everRegistered = true;
             this->numRegistrationFailures = 0;
@@ -243,9 +206,7 @@ void DscrClient::onSocketTextMessageReceived(const QString &text) {
                 this->clientState = DscrClient::ClientState::FailedAutoregister;
             }
             break;
-        case 'C':
-            // Call signs update
-            emit this->callSignsChanged(time, integers);
+        default:
             break;
     }
 }
@@ -347,4 +308,12 @@ void DscrClient::reset() {
     this->everRegistered = false;
     this->clientPingWatchdogPongOutstandingCycles = 0;
     this->numRegistrationFailures = 0;
+}
+
+void DscrClient::sendWsTextMessage(const QString &text) {
+    const QDateTime time = QDateTime::currentDateTime();
+    qDebug() << time << "DscrClient::sendWsTextMessage" << text;
+
+    emit this->textMessageSent(time, text);
+    this->socket.sendTextMessage(text);
 }
