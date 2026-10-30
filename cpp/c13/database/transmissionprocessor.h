@@ -23,7 +23,9 @@ public slots:
     void onWsMessageLogDscrTransmissionReceived(const QDateTime &time, qint64 msgId, const DscrMessage &msg);
 
 signals:
-    void dscrTransmissionReceived(const QDateTime &time, const DscrTransmission &msg);
+    void dscrTransmissionSent(const DscrTransmissionDbLinked &trns);
+    // void dscrTransmissionRecievedSentEcho(qint64 msgId);
+    void dscrTransmissionReceived(const DscrTransmissionDbLinked &trns);
     void callSignsChanged(const QDateTime &time, const QVector<qint64> &callSigns);
 
 private:

@@ -1,12 +1,14 @@
 #pragma once
 
 #include "maincore.h"
+#include "models/chatmodel.h"
 #include "models/dictionarytablemodel.h"
 
 #include <QLabel>
 #include <QMainWindow>
 #include <QStringListModel>
 #include <QSqlQueryModel>
+#include <QTextBrowser>
 
 namespace Ui {
 class MainWindow;
@@ -24,11 +26,10 @@ protected:
 
 private slots:
     void onMessageEditorTextChanged();
-    void onDscrClientDscrTransmissionReceived(const QDateTime &time, const DscrTransmission &msg);
     void onDscrClientCallSignsChanged(const QDateTime &time, const QVector<qint64> &callSigns);
 
 private:
-    void pushToChatBrowser(const DscrTransmission &msg);
+    void pushToChatBrowser(const DscrTransmissionDbLinked &trns, QTextBrowser *browser);
 
     Ui::MainWindow *ui;
     MainCore *core;
@@ -36,7 +37,8 @@ private:
     DictionaryTableModel dictionaryModel;
     QLabel instantMouseoverToolTip;
     // TODO temp for reacting to dictionary updates
-    QVector<DscrTransmission> messages;
+    ChatModel chatModelUnenc;
+    ChatModel chatModelAll;
     // TODO loose message editor state
     QVector<qint64> signalsToSend;
     bool canSend;

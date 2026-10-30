@@ -1,6 +1,6 @@
 #pragma once
 
-#include <database/dictionary.h>
+#include "database/dictionary.h"
 
 #include <QAbstractTableModel>
 

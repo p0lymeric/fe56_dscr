@@ -137,3 +137,26 @@ std::optional<DscrMessage> DscrMessage::decode(int kind, const QVariant &msg) {
             return std::nullopt;
     }
 }
+
+std::optional<DscrTransmission> DscrTransmission::fromDscrRMessage(const DscrMessage &msg) {
+    if(msg.signifier != 'R' || msg.integers.size() < 2) {
+        return std::nullopt;
+    }
+    // Nominally a message should be non-empty (>= 3) but we'll tolerate the empty case (== 2)
+    return DscrTransmission {
+        msg.integers[0],
+        msg.integers[1],
+        msg.integers.mid(2)
+    };
+}
+
+std::optional<DscrTransmission> DscrTransmission::fromDscrMMessage(const DscrMessage &msg, qint64 from) {
+    if(msg.signifier != 'M') {
+        return std::nullopt;
+    }
+    return DscrTransmission {
+        from,
+        std::nullopt,
+        msg.integers
+    };
+}

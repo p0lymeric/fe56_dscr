@@ -18,8 +18,17 @@ struct DscrMessage {
 };
 
 struct DscrTransmission {
-    QDateTime time;
     qint64 from;
-    qint64 sequenceNum;
+    std::optional<qint64> sequenceNum;
     QVector<qint64> symbols;
+
+    static std::optional<DscrTransmission> fromDscrRMessage(const DscrMessage &msg);
+    static std::optional<DscrTransmission> fromDscrMMessage(const DscrMessage &msg, qint64 from);
+};
+
+struct DscrTransmissionDbLinked {
+    QDateTime time;
+    qint64 msgId;
+    std::optional<qint64> encKey;
+    DscrTransmission msg;
 };

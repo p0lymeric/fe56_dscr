@@ -1,4 +1,4 @@
-#include "dictionarytablemodel.h"
+#include "models/dictionarytablemodel.h"
 
 // https://doc.qt.io/qt-6/qabstracttablemodel.html
 

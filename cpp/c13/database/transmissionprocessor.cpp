@@ -105,26 +105,50 @@ void TransmissionProcessor::onWsMessageLogConnected(const QDateTime &/*time*/, q
 }
 void TransmissionProcessor::onWsMessageLogDscrTransmissionSent(const QDateTime &time, qint64 msgId, const DscrMessage &msg) {
     this->processMessage(this->desiredCallsign, this->actualCallsign, msgId, 1, msg);
+    // TODO AFTER IMPLEMENTING MATCHING NEED TO SIGNAL TO CHATMODEL THAT A SENT MESSAGE WAS PAIRED!!!!
+    switch(msg.signifier) {
+        case 'M': {
+            if(this->actualCallsign.has_value()) {
+                auto transmission = DscrTransmission::fromDscrMMessage(msg, *this->actualCallsign);
+                if(transmission.has_value()) {
+                    std::optional<qint64> encKey = std::nullopt;
+                    if(transmission->symbols.size() >= 2) {
+                        if(transmission->symbols[0] == -65535) {
+                            encKey = transmission->symbols[1];
+                        }
+                    }
+                    emit this->dscrTransmissionSent(DscrTransmissionDbLinked { time, msgId, encKey, *transmission });
+                }
+            }
+            break;
+        }
+        default:
+            break;
+    }
 }
 void TransmissionProcessor::onWsMessageLogDscrTransmissionReceived(const QDateTime &time, qint64 msgId, const DscrMessage &msg) {
     this->processMessage(this->desiredCallsign, this->actualCallsign, msgId, 0, msg);
+    // TODO AFTER IMPLEMENTING DEDUPLICATION NEED TO NOT PUSH A MESSAGE IF IT WAS DEDUPLICATED!!!!
     switch(msg.signifier) {
-        case 'R':
+        case 'R': {
             // Received Message
-            if(msg.integers.size() >= 2) {
-                // Nominally a message should be non-empty (>= 3) but we'll tolerate the empty case (== 2)
-                emit this->dscrTransmissionReceived(time, DscrTransmission {
-                    time,
-                    msg.integers[0],
-                    msg.integers[1],
-                    msg.integers.mid(2)
-                });
+            auto transmission = DscrTransmission::fromDscrRMessage(msg);
+            if(transmission.has_value()) {
+                std::optional<qint64> encKey = std::nullopt;
+                if(transmission->symbols.size() >= 2) {
+                    if(transmission->symbols[0] == -65535) {
+                        encKey = transmission->symbols[1];
+                    }
+                }
+                emit this->dscrTransmissionReceived(DscrTransmissionDbLinked { time, msgId, encKey, *transmission });
             }
             break;
-        case 'C':
+        }
+        case 'C': {
             // Call signs update
             emit this->callSignsChanged(time, msg.integers);
             break;
+        }
     }
 }
 

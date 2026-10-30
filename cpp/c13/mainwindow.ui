@@ -75,6 +75,11 @@
             <attribute name="title">
              <string>Tab 2</string>
             </attribute>
+            <layout class="QVBoxLayout" name="verticalLayout_3">
+             <item>
+              <widget class="QTextBrowser" name="chatBrowser2"/>
+             </item>
+            </layout>
            </widget>
           </widget>
           <widget class="QWidget" name="widget_2" native="true">

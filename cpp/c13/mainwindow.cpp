@@ -26,8 +26,17 @@ MainWindow::MainWindow(MainCore *core, QWidget *parent) :
     this->ui->setupUi(this);
 
     QObject::connect(this->ui->messageEditor, &QTextEdit::textChanged, this, &MainWindow::onMessageEditorTextChanged);
-    QObject::connect(&this->core->transmissionProcessor, &TransmissionProcessor::dscrTransmissionReceived, this, &MainWindow::onDscrClientDscrTransmissionReceived);
     QObject::connect(&this->core->transmissionProcessor, &TransmissionProcessor::callSignsChanged, this, &MainWindow::onDscrClientCallSignsChanged);
+
+    this->chatModelUnenc.init(&this->core->transmissionProcessor, &this->core->dictionary, EncKeySelect { true, false, false, 0 });
+    this->chatModelAll.init(&this->core->transmissionProcessor, &this->core->dictionary, EncKeySelect { true, true, false, 0 });
+
+    QObject::connect(&this->chatModelUnenc, &ChatModel::appendChatMessage, this, [this](const DscrTransmissionDbLinked &trns) {
+        this->pushToChatBrowser(trns, this->ui->chatBrowser);
+    });
+    QObject::connect(&this->chatModelAll, &ChatModel::appendChatMessage, this, [this](const DscrTransmissionDbLinked &trns) {
+        this->pushToChatBrowser(trns, this->ui->chatBrowser2);
+    });
 
     this->ui->usersList->setModel(&this->usersModel);
     this->ui->usersList->setEditTriggers(QAbstractItemView::NoEditTriggers);
@@ -40,14 +49,17 @@ MainWindow::MainWindow(MainCore *core, QWidget *parent) :
     this->ui->dictionaryTable->verticalHeader()->hide();
     this->ui->dictionaryTable->horizontalHeader()->setStretchLastSection(true);
 
+    // TODO per chat browser instance
     this->ui->chatBrowser->viewport()->setMouseTracking(true);
     this->ui->chatBrowser->viewport()->installEventFilter(this);
+
     this->ui->messageEditor->viewport()->setMouseTracking(true);
     this->ui->messageEditor->viewport()->installEventFilter(this);
     this->ui->messageEditor->installEventFilter(this);
     this->instantMouseoverToolTip.setWindowFlags(Qt::ToolTip);
     this->instantMouseoverToolTip.setAttribute(Qt::WA_TransparentForMouseEvents);
 
+    // Show in dictionary or populate add box on clicking hyperlink
     QObject::connect(this->ui->addDictionaryButton, &QPushButton::clicked, this, [&](bool) {
         bool id_ok = false;
         qint64 id = this->ui->addDictionaryId->text().toLongLong(&id_ok);
@@ -61,15 +73,15 @@ MainWindow::MainWindow(MainCore *core, QWidget *parent) :
         }
     });
 
-    auto lambdaRetranslate = [&]() {
+    auto lambdaRetranslateUnenc = [&]() {
         emit this->onMessageEditorTextChanged();
         // we will want to eventually drive the chat browser with a message model
         QScrollBar *vBar = this->ui->chatBrowser->verticalScrollBar();
         int vBarOldPosition = vBar->value();
         bool vBarOldAtBottom = vBarOldPosition == vBar->maximum();
         this->ui->chatBrowser->clear();
-        for(auto &msg : this->messages) {
-            this->pushToChatBrowser(msg);
+        for(auto &chatMsg : this->chatModelUnenc.getChatMessages()) {
+            this->pushToChatBrowser(chatMsg, this->ui->chatBrowser);
         }
         if(vBarOldAtBottom || vBarOldPosition > vBar->maximum()) {
             vBar->setValue(vBar->maximum());
@@ -78,56 +90,32 @@ MainWindow::MainWindow(MainCore *core, QWidget *parent) :
         }
     };
 
-    QObject::connect(&this->core->dictionary, &Dictionary::dataChanged, this, [lambdaRetranslate](qsizetype, qsizetype) { lambdaRetranslate(); });
+    auto lambdaRetranslateAll = [&]() {
+        emit this->onMessageEditorTextChanged();
+        // we will want to eventually drive the chat browser with a message model
+        QScrollBar *vBar = this->ui->chatBrowser2->verticalScrollBar();
+        int vBarOldPosition = vBar->value();
+        bool vBarOldAtBottom = vBarOldPosition == vBar->maximum();
+        this->ui->chatBrowser2->clear();
+        for(auto &chatMsg : this->chatModelAll.getChatMessages()) {
+            this->pushToChatBrowser(chatMsg, this->ui->chatBrowser2);
+        }
+        if(vBarOldAtBottom || vBarOldPosition > vBar->maximum()) {
+            vBar->setValue(vBar->maximum());
+        } else {
+            vBar->setValue(vBarOldPosition);
+        }
+    };
+
+    QObject::connect(&this->chatModelUnenc, &ChatModel::retranslateAll, this, [=]() {
+        lambdaRetranslateUnenc();
+        lambdaRetranslateAll();
+    });
     // temp to force a retranslate
-    QObject::connect(this->ui->connectionPill, &QPushButton::clicked, this, [lambdaRetranslate](bool) { lambdaRetranslate(); });
-
-    // if(auto query = this->core->database.oneshotStatement(R"(
-    //     SELECT msg, time_posix_ms from log_wsmessages
-    //     WHERE direction=0 AND kind=0
-    // )", {}); query.has_value()) {
-    //     while(query->next()) {
-    //         QString text = query->value(0).toString();
-    //         QDateTime time = QDateTime::fromMSecsSinceEpoch(query->value(1).toLongLong());
-    //         const QStringList messageContents = text.split(",");
-
-    //         QChar signifier;
-    //         if(messageContents[0].length() == 1) {
-    //             signifier = messageContents[0][0];
-    //         } else {
-    //             // abort due to non-character signifier
-    //             return;
-    //         }
-
-    //         QVector<qint64> integers;
-    //         integers.reserve(messageContents.size() - 1);
-    //         for(qsizetype i = 1; i < messageContents.size(); i++) {
-    //             bool ok = false;
-    //             qint64 val = messageContents[i].toLongLong(&ok);
-    //             if(ok) {
-    //                 integers.append(val);
-    //             } else {
-    //                 // abort due to non-integer
-    //                 return;
-    //             }
-    //         }
-
-    //         switch(signifier.unicode()) {
-    //             case 'R':
-    //                 // Received Message
-    //                 if(integers.size() >= 2) {
-    //                     // Nominally a message should be non-empty (>= 3) but we'll tolerate the empty case (== 2)
-    //                     this->messages.append(DscrTransmission {
-    //                         time,
-    //                         integers[0],
-    //                         integers[1],
-    //                         integers.mid(2)
-    //                     });
-    //                 }
-    //                 break;
-    //         }
-    //     }
-    // }
+    QObject::connect(this->ui->connectionPill, &QPushButton::clicked, this, [=](bool) {
+        lambdaRetranslateUnenc();
+        lambdaRetranslateAll();
+    });
 
     this->core->dscrClient.register_(this->core->settings.get("dscrClient.callsign", 01445).toLongLong(), false);
     this->core->dscrClient.open(QUrl(this->core->settings.get("dscrClient.url", "wss://dscr-relay.dixonary.co.uk").toString()), true);
@@ -364,17 +352,12 @@ void MainWindow::onMessageEditorTextChanged() {
     ui->signalViz->setText(signalVizText);
 }
 
-void MainWindow::onDscrClientDscrTransmissionReceived(const QDateTime &time, const DscrTransmission &msg) {
-    this->messages.append(msg);
-    this->pushToChatBrowser(msg);
-}
-
-void MainWindow::pushToChatBrowser(const DscrTransmission &msg) {
-    QScrollBar *vBar = this->ui->chatBrowser->verticalScrollBar();
+void MainWindow::pushToChatBrowser(const DscrTransmissionDbLinked &trns, QTextBrowser *browser) {
+    QScrollBar *vBar = browser->verticalScrollBar();
     int vBarOldPosition = vBar->value();
     bool vBarOldAtBottom = vBarOldPosition == vBar->maximum();
 
-    int avgCharWidth = this->ui->chatBrowser->fontMetrics().averageCharWidth();
+    int avgCharWidth = browser->fontMetrics().averageCharWidth();
     int sequenceWidth = avgCharWidth * (3 + 2);
 
     QTextBlockFormat headerBlockFormat;
@@ -388,7 +371,7 @@ void MainWindow::pushToChatBrowser(const DscrTransmission &msg) {
     QBrush brush(QColor(41, 199, 227), Qt::SolidPattern);
     sequenceFormat.setForeground(brush);
     // sequenceFormat.setToolTip(QLocale().toString(time.toLocalTime(), QLocale::LongFormat));
-    sequenceFormat.setProperty(UserTextFormatProperty::TimeQDateTime, msg.time.toLocalTime());
+    sequenceFormat.setProperty(UserTextFormatProperty::TimeQDateTime, trns.time.toLocalTime());
     QTextCharFormat callsignFormat;
     QBrush brush2(QColor(196, 147, 0), Qt::SolidPattern);
     callsignFormat.setForeground(brush2);
@@ -397,19 +380,19 @@ void MainWindow::pushToChatBrowser(const DscrTransmission &msg) {
     QTextCharFormat messageFormat;
     // messageFormat.setForeground(brush3);
 
-    QTextCursor cur(this->ui->chatBrowser->document());
+    QTextCursor cur(browser->document());
     // Surround the whole edit in an edit block. This appears to eliminate a superlinear time penalty
     // that scales with the number of insertText calls in the block.
     cur.beginEditBlock();
     cur.movePosition(QTextCursor::End);
 
     cur.insertBlock(headerBlockFormat);
-    cur.insertText(QString::number(msg.sequenceNum).rightJustified(3, '0'), sequenceFormat);
+    cur.insertText(trns.msg.sequenceNum.has_value() ? QString::number(*trns.msg.sequenceNum).rightJustified(3, '0') : "???", sequenceFormat);
     cur.insertText("  ");
-    cur.insertText(QString::number(msg.from, 8).rightJustified(4, '0'), callsignFormat);
+    cur.insertText(QString::number(trns.msg.from, 8).rightJustified(4, '0'), callsignFormat);
 
     cur.insertBlock(messageBlockFormat);
-    Fe56RDesymbolized desym = fe56_reformatter_desymbolize(this->core->dictionary.fe56Dictionary, msg.symbols.constData(), msg.symbols.size());
+    Fe56RDesymbolized desym = fe56_reformatter_desymbolize(this->core->dictionary.fe56Dictionary, trns.msg.symbols.constData(), trns.msg.symbols.size());
     QByteArrayView desymUtf8(desym.text.ptr, desym.text.size);
     uintptr_t prev_end = 0;
     for(uintptr_t i = 0; i < desym.spans.size; i++) {
@@ -417,7 +400,7 @@ void MainWindow::pushToChatBrowser(const DscrTransmission &msg) {
         if(prev_end < span.start) {
             cur.insertText(QString::fromUtf8(desymUtf8.sliced(prev_end, span.start - prev_end)), messageFormat);
         }
-        messageFormat.setProperty(UserTextFormatProperty::SignalIdqint64, msg.symbols[i]);
+        messageFormat.setProperty(UserTextFormatProperty::SignalIdqint64, trns.msg.symbols[i]);
         cur.insertText(QString::fromUtf8(desymUtf8.sliced(span.start, span.end - span.start)), messageFormat);
         messageFormat.clearProperty(UserTextFormatProperty::SignalIdqint64);
         prev_end = span.end;
