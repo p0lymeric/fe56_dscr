@@ -14,6 +14,7 @@ struct DscrMessage {
     QByteArray encodePacked();
     static std::optional<DscrMessage> decodePacked(const QByteArray &pack);
 
+    static std::optional<DscrMessage> decode(int kind, const QVariant &msg);
 };
 
 struct DscrTransmission {

@@ -4,6 +4,7 @@
 #include "database/settings.h"
 #include "dscrtypes.h"
 
+#include <optional>
 #include <QDateTime>
 #include <QObject>
 #include <QUrl>
@@ -26,6 +27,14 @@ signals:
     void callSignsChanged(const QDateTime &time, const QVector<qint64> &callSigns);
 
 private:
+    bool processMessage(std::optional<qint64> &desiredCallsign, std::optional<qint64> &actualCallsign, qint64 id, int direction, const DscrMessage &msg);
+
     Database *db;
     Settings *settings;
+
+    std::optional<qint64> desiredCallsign;
+    std::optional<qint64> actualCallsign;
+
+    QSqlQuery prepInsertIntoMemoTransmissions;
+    QSqlQuery prepMarkMFromMeMatched;
 };

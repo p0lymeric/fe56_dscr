@@ -11,6 +11,10 @@ RUST_TARGET_PATH="$PWD/target/macOS-AppleClang-Native-Debug-Dyn/target/debug"
 
 mkdir -p target
 
+# hack to enable clangd
+mkdir -p target/Windows-MSVC-x64-Debug-MD
+ln -sfh ../macOS-AppleClang-Native-Debug-Dyn/build target/Windows-MSVC-x64-Debug-MD/build
+
 pushd rust
 cargo build -p fe56_capi --target-dir ../target/macOS-AppleClang-Native-Debug-Dyn/target
 popd

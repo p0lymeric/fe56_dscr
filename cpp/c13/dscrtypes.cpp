@@ -120,3 +120,20 @@ std::optional<DscrMessage> DscrMessage::decodePacked(const QByteArray &pack) {
 
     return DscrMessage { signifier, integers };
 }
+
+std::optional<DscrMessage> DscrMessage::decode(int kind, const QVariant &msg) {
+    switch(kind) {
+        case 0:
+            if(msg.typeId() != QMetaType::QString) {
+                return std::nullopt;
+            }
+            return DscrMessage::decodeWsMessage(msg.toString());
+        case 1:
+            if(msg.typeId() != QMetaType::QByteArray) {
+                return std::nullopt;
+            }
+            return DscrMessage::decodePacked(msg.toByteArray());
+        default:
+            return std::nullopt;
+    }
+}
