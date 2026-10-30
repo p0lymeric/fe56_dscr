@@ -28,9 +28,6 @@ MainWindow::MainWindow(MainCore *core, QWidget *parent) :
     QObject::connect(this->ui->messageEditor, &QTextEdit::textChanged, this, &MainWindow::onMessageEditorTextChanged);
     QObject::connect(&this->core->transmissionProcessor, &TransmissionProcessor::callSignsChanged, this, &MainWindow::onDscrClientCallSignsChanged);
 
-    this->chatModelUnenc.init(&this->core->transmissionProcessor, &this->core->dictionary, EncKeySelect { true, false, false, 0 });
-    this->chatModelAll.init(&this->core->transmissionProcessor, &this->core->dictionary, EncKeySelect { true, true, false, 0 });
-
     QObject::connect(&this->chatModelUnenc, &ChatModel::appendChatMessage, this, [this](const DscrTransmissionDbLinked &trns) {
         this->pushToChatBrowser(trns, this->ui->chatBrowser);
     });
@@ -52,6 +49,8 @@ MainWindow::MainWindow(MainCore *core, QWidget *parent) :
     // TODO per chat browser instance
     this->ui->chatBrowser->viewport()->setMouseTracking(true);
     this->ui->chatBrowser->viewport()->installEventFilter(this);
+    this->ui->chatBrowser2->viewport()->setMouseTracking(true);
+    this->ui->chatBrowser2->viewport()->installEventFilter(this);
 
     this->ui->messageEditor->viewport()->setMouseTracking(true);
     this->ui->messageEditor->viewport()->installEventFilter(this);
@@ -109,6 +108,8 @@ MainWindow::MainWindow(MainCore *core, QWidget *parent) :
 
     QObject::connect(&this->chatModelUnenc, &ChatModel::retranslateAll, this, [=]() {
         lambdaRetranslateUnenc();
+    });
+    QObject::connect(&this->chatModelAll, &ChatModel::retranslateAll, this, [=]() {
         lambdaRetranslateAll();
     });
     // temp to force a retranslate
@@ -116,6 +117,9 @@ MainWindow::MainWindow(MainCore *core, QWidget *parent) :
         lambdaRetranslateUnenc();
         lambdaRetranslateAll();
     });
+
+    this->chatModelUnenc.init(&this->core->transmissionProcessor, &this->core->dictionary, EncKeySelect { true, false, false, 0 });
+    this->chatModelAll.init(&this->core->transmissionProcessor, &this->core->dictionary, EncKeySelect { true, true, false, 0 });
 
     this->core->dscrClient.register_(this->core->settings.get("dscrClient.callsign", 01445).toLongLong(), false);
     this->core->dscrClient.open(QUrl(this->core->settings.get("dscrClient.url", "wss://dscr-relay.dixonary.co.uk").toString()), true);
@@ -125,80 +129,84 @@ MainWindow::~MainWindow() {
     delete ui;
 }
 
-bool MainWindow::eventFilter(QObject *watched, QEvent *event) {
-    if(watched == this->ui->chatBrowser->viewport()) {
-        // qDebug() << watched->objectName() << event->type();
-        switch(event->type()) {
-            case QEvent::MouseMove: {
-                QMouseEvent *eventMouse = static_cast<QMouseEvent *>(event);
-                // qDebug() << eventMouse->pos();
-                // qDebug() << this->ui->chatBrowser->document()->documentLayout()->hitTest(eventMouse->pos(), Qt::HitTestAccuracy::ExactHit);
-                QPointF documentPosition = eventMouse->pos() + QPointF(this->ui->chatBrowser->horizontalScrollBar()->value(), this->ui->chatBrowser->verticalScrollBar()->value());
-                int mousedOverIdx = this->ui->chatBrowser->document()->documentLayout()->hitTest(documentPosition, Qt::HitTestAccuracy::ExactHit);
-                if(mousedOverIdx >= 0) {
-                    QTextCursor cur(ui->chatBrowser->document());
-                    cur.setPosition(mousedOverIdx);
-                    // need an inclusive selection otherwise hit detection will be offset leftwards
-                    cur.movePosition(QTextCursor::NextCharacter, QTextCursor::KeepAnchor);
-                    // qDebug() << cur.charFormat();
-                    QTextCharFormat format = cur.charFormat();
-                    QVariant timeProp = format.property(UserTextFormatProperty::TimeQDateTime);
-                    QVariant idProp = format.property(UserTextFormatProperty::SignalIdqint64);
-                    if(timeProp.isValid()) {
-                        // qDebug() << timeProp.toDateTime();
-                        this->instantMouseoverToolTip.setText(timeProp.toDateTime().toString("yyyy-MM-dd HH:mm:ss t"));
-                        this->instantMouseoverToolTip.adjustSize();
-                        this->instantMouseoverToolTip.move(eventMouse->globalPosition().toPoint() + QPoint(15, 15));
-                        this->instantMouseoverToolTip.show();
-                    } else if(idProp.isValid()) {
-                        // qDebug() << idProp.toLongLong();
-                        this->instantMouseoverToolTip.setText(QString::number(idProp.toLongLong()));
-                        this->instantMouseoverToolTip.adjustSize();
-                        this->instantMouseoverToolTip.move(eventMouse->globalPosition().toPoint() + QPoint(15, 15));
-                        this->instantMouseoverToolTip.show();
-                    } else {
-                        this->instantMouseoverToolTip.hide();
-                    }
+bool MainWindow::eventFilterChatBrowser(QTextBrowser *browser, QEvent *event) {
+    switch(event->type()) {
+        case QEvent::MouseMove: {
+            QMouseEvent *eventMouse = static_cast<QMouseEvent *>(event);
+            QPointF documentPosition = eventMouse->pos() + QPointF(browser->horizontalScrollBar()->value(), browser->verticalScrollBar()->value());
+            int mousedOverIdx = browser->document()->documentLayout()->hitTest(documentPosition, Qt::HitTestAccuracy::ExactHit);
+            if(mousedOverIdx >= 0) {
+                QTextCursor cur(browser->document());
+                cur.setPosition(mousedOverIdx);
+                // need an inclusive selection otherwise hit detection will be offset leftwards
+                cur.movePosition(QTextCursor::NextCharacter, QTextCursor::KeepAnchor);
+                // qDebug() << cur.charFormat();
+                QTextCharFormat format = cur.charFormat();
+                QVariant timeProp = format.property(UserTextFormatProperty::TimeQDateTime);
+                QVariant idProp = format.property(UserTextFormatProperty::SignalIdqint64);
+                if(timeProp.isValid()) {
+                    // qDebug() << timeProp.toDateTime();
+                    this->instantMouseoverToolTip.setText(timeProp.toDateTime().toString("yyyy-MM-dd HH:mm:ss t"));
+                    this->instantMouseoverToolTip.adjustSize();
+                    this->instantMouseoverToolTip.move(eventMouse->globalPosition().toPoint() + QPoint(15, 15));
+                    this->instantMouseoverToolTip.show();
+                } else if(idProp.isValid()) {
+                    // qDebug() << idProp.toLongLong();
+                    this->instantMouseoverToolTip.setText(QString::number(idProp.toLongLong()));
+                    this->instantMouseoverToolTip.adjustSize();
+                    this->instantMouseoverToolTip.move(eventMouse->globalPosition().toPoint() + QPoint(15, 15));
+                    this->instantMouseoverToolTip.show();
                 } else {
-                    // TODO may be edge cases where we don't see a MouseMove but still want to close the tooltip
                     this->instantMouseoverToolTip.hide();
                 }
-                break;
-            }
-            case QEvent::MouseButtonPress: {
-                QMouseEvent *eventMouse = static_cast<QMouseEvent *>(event);
-                QPointF documentPosition = eventMouse->pos() + QPointF(this->ui->chatBrowser->horizontalScrollBar()->value(), this->ui->chatBrowser->verticalScrollBar()->value());
-                int mousedOverIdx = this->ui->chatBrowser->document()->documentLayout()->hitTest(documentPosition, Qt::HitTestAccuracy::ExactHit);
-                if(mousedOverIdx >= 0) {
-                    QTextCursor cur(ui->chatBrowser->document());
-                    cur.setPosition(mousedOverIdx);
-                    // need an inclusive selection otherwise hit detection will be offset leftwards
-                    cur.movePosition(QTextCursor::NextCharacter, QTextCursor::KeepAnchor);
-                    // qDebug() << cur.charFormat();
-                    QTextCharFormat format = cur.charFormat();
-                    QVariant idProp = format.property(UserTextFormatProperty::SignalIdqint64);
-                    if(idProp.isValid()) {
-                        qDebug() << idProp.toLongLong();
-                        auto s = this->ui->dictionaryTable->model()->match(this->ui->dictionaryTable->model()->index(0, 0), Qt::DisplayRole, idProp.toLongLong(), 1, Qt::MatchExactly);
-                        if(!s.isEmpty()) {
-                            this->ui->dictionaryTable->selectionModel()->setCurrentIndex(s.first(), QItemSelectionModel::ClearAndSelect | QItemSelectionModel::Rows);
-                            this->ui->dictionaryTable->scrollTo(s.first(), QAbstractItemView::PositionAtCenter);
-                        } else {
-                            this->ui->addDictionaryId->setText(QString::number(idProp.toLongLong()));
-                        }
-                        // this->dictionaryModel.
-                    }
-                }
-                break;
-            }
-            case QEvent::Leave: {
+            } else {
+                // TODO may be edge cases where we don't see a MouseMove but still want to close the tooltip
                 this->instantMouseoverToolTip.hide();
-                break;
             }
-            default:
-                break;
+            break;
         }
+        case QEvent::MouseButtonPress: {
+            QMouseEvent *eventMouse = static_cast<QMouseEvent *>(event);
+            QPointF documentPosition = eventMouse->pos() + QPointF(browser->horizontalScrollBar()->value(), browser->verticalScrollBar()->value());
+            int mousedOverIdx = browser->document()->documentLayout()->hitTest(documentPosition, Qt::HitTestAccuracy::ExactHit);
+            if(mousedOverIdx >= 0) {
+                QTextCursor cur(browser->document());
+                cur.setPosition(mousedOverIdx);
+                // need an inclusive selection otherwise hit detection will be offset leftwards
+                cur.movePosition(QTextCursor::NextCharacter, QTextCursor::KeepAnchor);
+                // qDebug() << cur.charFormat();
+                QTextCharFormat format = cur.charFormat();
+                QVariant idProp = format.property(UserTextFormatProperty::SignalIdqint64);
+                if(idProp.isValid()) {
+                    // qDebug() << idProp.toLongLong();
+                    auto s = this->ui->dictionaryTable->model()->match(this->ui->dictionaryTable->model()->index(0, 0), Qt::DisplayRole, idProp.toLongLong(), 1, Qt::MatchExactly);
+                    if(!s.isEmpty()) {
+                        this->ui->dictionaryTable->selectionModel()->setCurrentIndex(s.first(), QItemSelectionModel::ClearAndSelect | QItemSelectionModel::Rows);
+                        this->ui->dictionaryTable->scrollTo(s.first(), QAbstractItemView::PositionAtCenter);
+                    } else {
+                        this->ui->addDictionaryId->setText(QString::number(idProp.toLongLong()));
+                    }
+                    // this->dictionaryModel.
+                }
+            }
+            break;
+        }
+        case QEvent::Leave: {
+            this->instantMouseoverToolTip.hide();
+            break;
+        }
+        default:
+            break;
+    }
+    return false;
+}
 
+bool MainWindow::eventFilter(QObject *watched, QEvent *event) {
+    // qDebug() << watched->objectName() << event->type();
+    if(watched == this->ui->chatBrowser->viewport()) {
+        this->eventFilterChatBrowser(this->ui->chatBrowser, event);
+    } else if(watched == this->ui->chatBrowser2->viewport()) {
+        this->eventFilterChatBrowser(this->ui->chatBrowser2, event);
     } else if(watched == this->ui->messageEditor->viewport()) {
         switch(event->type()) {
             case QEvent::MouseMove: {
@@ -241,7 +249,7 @@ bool MainWindow::eventFilter(QObject *watched, QEvent *event) {
                         }
                     }
                     if(idProp.isValid()) {
-                        qDebug() << idProp.toLongLong();
+                        // qDebug() << idProp.toLongLong();
                         auto s = this->ui->dictionaryTable->model()->match(this->ui->dictionaryTable->model()->index(0, 0), Qt::DisplayRole, idProp.toLongLong(), 1, Qt::MatchExactly);
                         if(!s.isEmpty()) {
                             this->ui->dictionaryTable->selectionModel()->setCurrentIndex(s.first(), QItemSelectionModel::ClearAndSelect | QItemSelectionModel::Rows);

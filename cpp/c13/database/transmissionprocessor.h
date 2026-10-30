@@ -5,6 +5,7 @@
 #include "dscrtypes.h"
 
 #include <optional>
+#include <limits>
 #include <QDateTime>
 #include <QObject>
 #include <QUrl>
@@ -16,6 +17,8 @@ public:
     explicit TransmissionProcessor(QObject *parent = nullptr);
 
     bool init(Database *db, Settings *settings);
+
+    QVector<DscrTransmissionDbLinked> getDbTransmissions(EncKeySelect encKeySelect, int limit, qint64 wsMessageIdBefore = std::numeric_limits<qint64>::max());
 
 public slots:
     void onWsMessageLogConnected(const QDateTime &time, qint64 sessionId);

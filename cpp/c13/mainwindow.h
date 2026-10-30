@@ -30,6 +30,7 @@ private slots:
 
 private:
     void pushToChatBrowser(const DscrTransmissionDbLinked &trns, QTextBrowser *browser);
+    bool eventFilterChatBrowser(QTextBrowser *browser, QEvent *event);
 
     Ui::MainWindow *ui;
     MainCore *core;

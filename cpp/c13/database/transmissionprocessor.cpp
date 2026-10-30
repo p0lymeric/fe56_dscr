@@ -1,7 +1,9 @@
 #include "database/transmissionprocessor.h"
 #include "dscrtypes.h"
 
-#include <tuple>
+#include <algorithm>
+#include <optional>
+// #include <tuple>
 #include <QSqlError>
 
 TransmissionProcessor::TransmissionProcessor(QObject *parent) : QObject{parent} {
@@ -97,6 +99,82 @@ bool TransmissionProcessor::init(Database *db, Settings *settings) {
     }
 
     return true;
+}
+
+QVector<DscrTransmissionDbLinked> TransmissionProcessor::getDbTransmissions(EncKeySelect encKeySelect, int limit, qint64 wsMessageIdBefore) {
+    QVector<DscrTransmissionDbLinked> results;
+
+    QStringList encKeyWhereOrFragments;
+    if(encKeySelect.showUnkeyed) {
+        encKeyWhereOrFragments.append("t.enc_key IS NULL");
+    }
+    if(encKeySelect.showAllKeyed) {
+        encKeyWhereOrFragments.append("t.enc_key IS NOT NULL");
+    }
+    if(encKeySelect.showKeyed) {
+        encKeyWhereOrFragments.append("t.enc_key=:enc_key");
+    }
+    QString encKeyWhereClause = "0 AND";
+    if(!encKeyWhereOrFragments.isEmpty()) {
+        encKeyWhereClause = QString("(%1) AND").arg(encKeyWhereOrFragments.join(" OR "));
+    }
+
+    auto select = this->db->prepareStatement(QString(R"(
+        SELECT t.wsmessage_id, w.time_posix_ms, t.enc_key, w.kind, w.msg
+        FROM memo_transmissions AS t
+        JOIN log_wsmessages AS w
+        ON t.wsmessage_id=w.id
+        WHERE %1 t.origin IN (0, 1) AND t.duplicate=0 AND t.wsmessage_id<:ws_message_id_before
+        ORDER BY t.wsmessage_id DESC
+        LIMIT :limit
+    )").arg(encKeyWhereClause));
+
+    if(!select.has_value()) {
+        return results;
+    }
+
+    select->setForwardOnly(true);
+    if(encKeySelect.showKeyed) {
+        select->bindValue(":enc_key", encKeySelect.encKey);
+    }
+    select->bindValue(":ws_message_id_before", wsMessageIdBefore);
+    select->bindValue(":limit", limit);
+    if(!select->exec()) {
+        return results;
+    }
+    if(select->lastError().isValid()) {
+        // "Note: To make sure the forward-only query completed successfully, the application should check lastError()
+        // for an error not only after executing the query, but also after navigating the query results."
+        return results;
+    }
+
+    while(select->next()) {
+        qint64 msgId = select->value(0).toLongLong();
+        QDateTime time = QDateTime::fromMSecsSinceEpoch(select->value(1).toLongLong());
+        QVariant encKey = select->value(2);
+        int kind = select->value(3).toInt();
+        QVariant msg = select->value(4);
+        auto dMsg = DscrMessage::decode(kind, msg);
+        if(!dMsg.has_value()) {
+            return QVector<DscrTransmissionDbLinked>();
+        }
+        // TODO M handling if origins 2/3 are routed through
+        auto trns = DscrTransmission::fromDscrRMessage(*dMsg);
+        if(!trns.has_value()) {
+            return QVector<DscrTransmissionDbLinked>();
+        }
+        results.append(DscrTransmissionDbLinked {
+            time,
+            msgId,
+            encKey.isNull() ? std::nullopt : std::optional<qint64>(encKey.toLongLong()),
+            *trns
+        });
+    }
+    if(select->lastError().isValid()) {
+        return QVector<DscrTransmissionDbLinked>();
+    }
+    std::reverse(results.begin(), results.end());
+    return results;
 }
 
 void TransmissionProcessor::onWsMessageLogConnected(const QDateTime &/*time*/, qint64 /*sessionId*/) {

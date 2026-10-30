@@ -32,3 +32,10 @@ struct DscrTransmissionDbLinked {
     std::optional<qint64> encKey;
     DscrTransmission msg;
 };
+
+struct EncKeySelect {
+    bool showUnkeyed;
+    bool showAllKeyed;
+    bool showKeyed;
+    qint64 encKey;
+};

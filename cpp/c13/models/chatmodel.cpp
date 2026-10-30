@@ -15,6 +15,9 @@ void ChatModel::init(TransmissionProcessor *tp, Dictionary *dictionary, EncKeySe
     // QObject::connect(this->tp, &TransmissionProcessor::recievedSentEcho, this, &ChatModel::onTransmissionProcessorDscrTransmissionRecievedSentEcho);
     QObject::connect(this->tp, &TransmissionProcessor::dscrTransmissionReceived, this, &ChatModel::onTransmissionProcessorDscrTransmissionReceived);
     QObject::connect(this->dictionary, &Dictionary::dataChanged, this, &ChatModel::onDictionaryDataChanged);
+
+    this->chatMessages = tp->getDbTransmissions(encKeySelect, 128);
+    emit this->retranslateAll();
 }
 
 QSpan<const DscrTransmissionDbLinked> ChatModel::getChatMessages() const {

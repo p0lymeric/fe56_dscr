@@ -52,7 +52,7 @@ bool Dictionary::init(Database *db, Settings *settings) {
     if(!query.exec(R"(
         SELECT d.signal, t.word, d.fmt_before, d.fmt_after, d.fmt_break_on_double, d.descr, t.revision, t.mtime_posix_ms
         FROM user_dictionary AS d
-        LEFT JOIN user_translations as t
+        LEFT JOIN user_translations AS t
         ON d.signal=t.signal
         AND t.revision=(
             SELECT MAX(revision)

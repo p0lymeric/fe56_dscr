@@ -4,15 +4,8 @@
 #include "database/transmissionprocessor.h"
 
 #include <QObject>
-#include <qdatetime.h>
-#include <qspan.h>
-
-struct EncKeySelect {
-    bool showUnkeyed;
-    bool showAllKeyed;
-    bool showKeyed;
-    qint64 encKey;
-};
+#include <QDateTime>
+#include <QSpan>
 
 class ChatModel : public QObject {
     Q_OBJECT
