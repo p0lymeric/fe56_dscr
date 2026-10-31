@@ -122,6 +122,7 @@
           </property>
           <widget class="QListView" name="usersList"/>
           <widget class="QTextBrowser" name="inspector"/>
+          <widget class="OGlOrbPlotViewer" name="oGlOrbPlotViewer"/>
          </widget>
         </item>
        </layout>

@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.19)
 project(c13 LANGUAGES CXX)
 
-find_package(Qt6 6.5 REQUIRED COMPONENTS Core Widgets WebSockets Sql)
+find_package(Qt6 6.5 REQUIRED COMPONENTS Core Widgets WebSockets Sql OpenGLWidgets)
 
 # enable use of qrc resource files
 set(CMAKE_AUTORCC ON)
@@ -23,11 +23,13 @@ qt_add_executable(c13
     database/wsmessagelog.h database/wsmessagelog.cpp
     database/transmissionprocessor.h database/transmissionprocessor.cpp
 
+    models/dictionarytablemodel.h models/dictionarytablemodel.cpp
+    models/chatmodel.h models/chatmodel.cpp
+
     mainwindow.h mainwindow.cpp mainwindow.ui
     serverconnectdialog.h serverconnectdialog.cpp serverconnectdialog.ui
 
-    models/dictionarytablemodel.h models/dictionarytablemodel.cpp
-    models/chatmodel.h models/chatmodel.cpp
+    oglorbplotviewer.h oglorbplotviewer.cpp
 
 )
 
@@ -37,6 +39,7 @@ target_link_libraries(c13
         Qt::Widgets
         Qt::WebSockets
         Qt::Sql
+        Qt::OpenGLWidgets
 )
 
 target_include_directories(c13

@@ -9,6 +9,8 @@
 #include <QLockFile>
 #include <QMessageBox>
 #include <QMutex>
+#include <QOpenGLContext>
+#include <QSurfaceFormat>
 
 static QtMessageHandler originalHandler = nullptr;
 static QFile logToFileHandle;
@@ -89,6 +91,15 @@ int main(int argc, char *argv[]) {
         QMessageBox::critical(nullptr, "C13", "Could not load or create c13.sqlite3. Maybe the database is malformed or targets a newer version?");
         return 1;
     }
+
+    // Set global OpenGL parameters
+    // https://doc.qt.io/qt-6/qopenglwidget.html
+    QSurfaceFormat format;
+    format.setDepthBufferSize(24);
+    format.setStencilBufferSize(8);
+    format.setVersion(3, 3);
+    format.setProfile(QSurfaceFormat::CoreProfile);
+    QSurfaceFormat::setDefaultFormat(format);
 
     // Initialize and show the main window
     MainWindow w(&c);

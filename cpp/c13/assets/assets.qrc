@@ -15,4 +15,11 @@
         <file alias="init.sql">sql/init.sql</file>
         <file alias="migrate_0001_to_0002.sql">sql/migrate_0001_to_0002.sql</file>
     </qresource>
+    <qresource prefix="/shaders">
+        <file alias="blinn_phong_frag.glsl">shaders/blinn_phong_frag.glsl</file>
+        <file alias="blinn_phong_vertex.glsl">shaders/blinn_phong_vertex.glsl</file>
+    </qresource>
+    <qresource prefix="/meshes">
+        <file alias="icosphere4.obj">meshes/icosphere4.obj</file>
+    </qresource>
 </RCC>
