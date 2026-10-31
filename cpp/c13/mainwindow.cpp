@@ -123,6 +123,10 @@ MainWindow::MainWindow(MainCore *core, QWidget *parent) :
 
     this->core->dscrClient.register_(this->core->settings.get("dscrClient.callsign", 01445).toLongLong(), false);
     this->core->dscrClient.open(QUrl(this->core->settings.get("dscrClient.url", "wss://dscr-relay.dixonary.co.uk").toString()), true);
+
+    QVector<qint64> sus{-53 ,-14 ,-52 ,0 ,-3 ,0 ,-3 ,2 ,-3 ,6 ,-10 ,4 ,-3 ,0 ,-3 ,-52 ,0 ,-3 ,0 ,-3 ,0 ,-3 ,2 ,-10 ,0 ,-3 ,64 ,-3 ,-52 ,0 ,-3 ,0 ,-3 ,0 ,-3 ,2 ,-10 ,0 ,-3 ,64 ,-3 ,-52 ,0 ,-3 ,0 ,-3 ,1 ,-3 ,6 ,-10 ,4 ,-3 ,0 ,-3 ,-52 ,0 ,-3 ,0 ,-3 ,0 ,-3 ,6 ,-10 ,4 ,-3 ,0 ,-3 ,-52 ,-1 ,2 ,-3 ,0 ,-3 ,-1 ,2 ,-3 ,3 ,-10 ,0 ,-3 ,0 ,-3 ,-52 ,-1 ,2 ,-3 ,0 ,-3 ,-1 ,3 ,-3 ,3 ,-10 ,0 ,-3 ,0 ,-3 ,-52 ,-1 ,2 ,-3 ,0 ,-3 ,-1 ,4 ,-3 ,3 ,-10 ,0 ,-3 ,0 ,-3 ,-52 ,2 ,-3 ,0 ,-3 ,-1 ,2 ,-3 ,3 ,-10 ,0 ,-3 ,0 ,-3 ,-52 ,2 ,-3 ,0 ,-3 ,-1 ,3 ,-3 ,3 ,-10 ,0 ,-3 ,0 ,-3 ,-52 ,2 ,-3 ,0 ,-3 ,-1 ,4 ,-3 ,3 ,-10 ,0 ,-3 ,0 ,-3 ,-52 ,0 ,-3 ,-1 ,2 ,-3 ,2 ,-3 ,3 ,-10 ,4 ,-3 ,63 ,-3 ,-52 ,0 ,-3 ,2 ,-3 ,1 ,-3 ,4 ,-10 ,2 ,-3 ,0 ,-3 ,-52 ,0 ,-3 ,2 ,-3 ,0 ,-3 ,4 ,-10 ,2 ,-3 ,0 ,-15};
+    this->ui->glOrPViewer->load53(sus);
+    this->ui->glOrPViewer->update();
 }
 
 MainWindow::~MainWindow() {

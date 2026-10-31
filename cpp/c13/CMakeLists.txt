@@ -29,7 +29,7 @@ qt_add_executable(c13
     mainwindow.h mainwindow.cpp mainwindow.ui
     serverconnectdialog.h serverconnectdialog.cpp serverconnectdialog.ui
 
-    oglorbplotviewer.h oglorbplotviewer.cpp
+    glorpviewer.h glorpviewer.cpp
 
 )
 
