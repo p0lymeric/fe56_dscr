@@ -127,10 +127,6 @@ static bool executeTrustedSqlFile(Database &db, const QString &fileName) {
     }
 }
 
-static bool migrate_0001_to_0002(Database &db) {
-    return true;
-}
-
 // private
 bool Database::migrate() {
     // A QUery? Is that Qt's version of a uery? What's a uery?
@@ -189,7 +185,7 @@ bool Database::migrate() {
 
         return this->scopedTransaction([userVersion](Database &db) -> bool {
             if(userVersion == 1) {
-                if(!executeTrustedSqlFile(db, ":/sql/migrate_0001_to_0002.sql") || !migrate_0001_to_0002(db)) {
+                if(!executeTrustedSqlFile(db, ":/sql/migrate_0001_to_0002.sql")) {
                     return false;
                 }
             }
