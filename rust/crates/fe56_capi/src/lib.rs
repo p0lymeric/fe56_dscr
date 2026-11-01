@@ -5,6 +5,7 @@ use fe56_translation::compiler::SymbolizerToken;
 use fe56_translation::compiler::SymbolizerTrace;
 use fe56_translation::compiler::mwis::MwisSymbolizer;
 use fe56_translation::compiler::reformatter::CReformatterDesymbolizer;
+use fe56_translation::compiler::simple::SimpleDesymbolizer;
 use fe56_translation::dictionary::Definition;
 use fe56_translation::dictionary::DictionaryMut;
 use fe56_translation::dictionary::Formatting;
@@ -104,6 +105,22 @@ pub extern "C" fn fe56_reformatter_desymbolize(p_dictionary: *const ShadowDictio
     let arr = unsafe { std::slice::from_raw_parts(p_arr, size) };
 
     let desymbolized = CReformatterDesymbolizer.desymbolize(dictionary, arr);
+
+    let (text_ptr, text_size, text_capacity) = desymbolized.text.into_raw_parts();
+    let (spans_ptr, spans_size, spans_capacity) = desymbolized.spans.into_raw_parts();
+
+    RDesymbolized {
+        text: RStr { ptr: text_ptr, size: text_size, capacity: text_capacity },
+        spans: RVec { ptr: spans_ptr, size: spans_size, capacity: spans_capacity },
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn fe56_simple_desymbolize(p_dictionary: *const ShadowDictionary, p_arr: *const i64, size: usize) -> RDesymbolized {
+    let dictionary = unsafe { &*p_dictionary };
+    let arr = unsafe { std::slice::from_raw_parts(p_arr, size) };
+
+    let desymbolized = SimpleDesymbolizer.desymbolize(dictionary, arr);
 
     let (text_ptr, text_size, text_capacity) = desymbolized.text.into_raw_parts();
     let (spans_ptr, spans_size, spans_capacity) = desymbolized.spans.into_raw_parts();

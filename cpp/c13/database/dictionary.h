@@ -8,6 +8,7 @@
 #include <QObject>
 #include <QDateTime>
 #include <QElapsedTimer>
+#include <QSpan>
 
 enum class Spacing {
     None = 0,
@@ -44,6 +45,9 @@ public:
     bool relink(qint64 signal, qint64 signalTo);
     bool rename(qint64 signal, const QString &word);
     bool add(qint64 signal);
+
+    QString translateSimple(qint64 signal);
+    QString translateSimple(QSpan<const qint64> signalz);
 
     // FIXME privatize (need to provide Symbolizer and Desymbolizer)
     Fe56ShadowDictionary *fe56Dictionary;

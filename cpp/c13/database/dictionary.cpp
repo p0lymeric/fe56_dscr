@@ -398,3 +398,16 @@ bool Dictionary::add(qint64 signal) {
 
     return true;
 }
+
+QString Dictionary::translateSimple(qint64 signal) {
+    return this->translateSimple(QSpan<const qint64>(&signal, 1));
+}
+
+QString Dictionary::translateSimple(QSpan<const qint64> signalz) {
+    // TODO native implementation
+    Fe56RDesymbolized desym = fe56_simple_desymbolize(this->fe56Dictionary, signalz.data(), signalz.size());
+    QByteArrayView desymUtf8(desym.text.ptr, desym.text.size);
+    QString string = QString::fromUtf8(desymUtf8);
+    fe56_rdesymbolized_free(desym);
+    return string;
+}

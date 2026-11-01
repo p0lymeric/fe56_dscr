@@ -1,4 +1,5 @@
 #pragma once
+#include "dscrtypes.h"
 
 #include <QOpenGLWidget>
 #include <QOpenGLVertexArrayObject>
@@ -19,7 +20,7 @@ public:
     explicit GlOrPViewer(QWidget *parent = nullptr);
     ~GlOrPViewer();
 
-    bool load53(QSpan<const qint64> symbols);
+    bool load53(const DscrSpecialPlot &symbols);
 
 signals:
 

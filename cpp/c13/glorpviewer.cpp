@@ -1,8 +1,8 @@
 #include "glorpviewer.h"
+#include "dscrtypes.h"
 
 #include <array>
 #include <algorithm>
-#include <optional>
 #include <QOpenGLContext>
 #include <QOpenGLFunctions>
 #include <QOpenGLExtraFunctions>
@@ -11,171 +11,11 @@
 // Note: Qt recommends a particular pattern for initializing and destroying QOpenGLWidgets
 // https://doc.qt.io/qt-6/qopenglwidget.html
 
-struct OrbInstance {
-    float x;
-    float z;
-    float y;
-    float d;
-    int colourIdx;
-};
-
-enum PlotSymbol {
-    // Orb plots, as seen in the game
-    UnaryMinus = -1,
-    Sep = -3,
-    Radix = -10,
-    Begin = -14,
-    End = -15,
-    Orb = -52,
-    Plot = -53,
-};
-
 GlOrPViewer::GlOrPViewer(QWidget *parent) : QOpenGLWidget{parent} {
 }
 
 GlOrPViewer::~GlOrPViewer() {
     this->cleanup();
-}
-
-static float asDecimalFraction(qint64 nonNegativeInt) {
-    // Known issue: It's not possible to represent decimals with fractional components that start with 0,
-    // due to how DSCR clients canonically pack numbers
-    float scaleFactor = 1.0f;
-    while(scaleFactor <= float(nonNegativeInt)) {
-        scaleFactor *= 10.0f;
-    }
-    return float(nonNegativeInt) / scaleFactor;
-}
-
-static std::optional<float> consumeUnsignedFloat(QSpan<const qint64> symbols, qsizetype &cur) {
-    qsizetype cur2 = cur;
-    if(cur2 >= symbols.size()) {
-        return std::nullopt;
-    }
-
-    if(symbols[cur2] == PlotSymbol::Radix) {
-        // Radix
-        cur2++;
-        if(cur2 >= symbols.size()) {
-            return std::nullopt;
-        }
-        // Radix NONNEGATIVE_INTEGER
-        if(symbols[cur2] >= 0) {
-            float accumulator = asDecimalFraction(symbols[cur2]);
-            cur2++;
-            cur = cur2;
-            return accumulator;
-        } else {
-            return std::nullopt;
-        }
-    } else if(symbols[cur2] >= 0) {
-        // NONNEGATIVE_INTEGER
-        float accumulator = symbols[cur2];
-        cur2++;
-        if(cur2 >= symbols.size()) {
-            cur = cur2;
-            return accumulator;
-        }
-        // NONNEGATIVE_INTEGER Radix
-        if(symbols[cur2] == PlotSymbol::Radix) {
-            cur2++;
-            if(cur2 >= symbols.size()) {
-                cur = cur2;
-                return accumulator;
-            }
-            if(symbols[cur2] >= 0) {
-                // NONNEGATIVE_INTEGER Radix NONNEGATIVE_INTEGER
-                accumulator += asDecimalFraction(symbols[cur2]);
-                cur2++;
-                cur = cur2;
-                return accumulator;
-            } else {
-                cur = cur2;
-                return accumulator;
-            }
-        } else {
-            cur = cur2;
-            return accumulator;
-        }
-    } else {
-        return std::nullopt;
-    }
-}
-
-static std::optional<float> consumeSignedFloat(QSpan<const qint64> symbols, qsizetype &cur) {
-    qsizetype cur2 = cur;
-    if(cur2 >= symbols.size()) {
-        return std::nullopt;
-    }
-
-    bool negate = false;
-    if(symbols[cur2] == PlotSymbol::UnaryMinus) {
-        // UnaryMinus
-        negate = true;
-        cur2++;
-        if(cur2 >= symbols.size()) {
-            return std::nullopt;
-        }
-    }
-
-    auto maybeUnsignedNumber = consumeUnsignedFloat(symbols, cur2);
-    if(maybeUnsignedNumber.has_value()) {
-        cur = cur2;
-        return negate ? -*maybeUnsignedNumber : *maybeUnsignedNumber;
-    }
-    return std::nullopt;
-}
-
-static bool consumeSep(QSpan<const qint64> &symbols, qsizetype &cur) {
-    if(cur >= symbols.size() || symbols[cur] != PlotSymbol::Sep) {
-        return false;
-    }
-
-    cur++;
-    return true;
-}
-
-static std::optional<OrbInstance> consumeOrb(QSpan<const qint64> symbols, qsizetype &cur) {
-    qsizetype cur2 = cur;
-    if(cur2 >= symbols.size() || symbols[cur2] != PlotSymbol::Orb) {
-        return std::nullopt;
-    }
-    cur2++;
-
-    OrbInstance orb;
-    auto maybeX = consumeSignedFloat(symbols, cur2);
-    if(maybeX.has_value() && consumeSep(symbols, cur2)) {
-        orb.x = *maybeX;
-    } else {
-        return std::nullopt;
-    }
-    auto maybeZ = consumeSignedFloat(symbols, cur2);
-    if(maybeZ.has_value() && consumeSep(symbols, cur2)) {
-        orb.z = -*maybeZ;
-    } else {
-        return std::nullopt;
-    }
-    auto maybeY = consumeSignedFloat(symbols, cur2);
-    if(maybeY.has_value() && consumeSep(symbols, cur2)) {
-        orb.y = *maybeY;
-    } else {
-        return std::nullopt;
-    }
-    auto maybeR = consumeUnsignedFloat(symbols, cur2);
-    if(maybeR.has_value() && consumeSep(symbols, cur2)) {
-        orb.d = *maybeR;
-    } else {
-        return std::nullopt;
-    }
-    if(cur2 < symbols.size() && symbols[cur2] >= 0) {
-        orb.colourIdx = symbols[cur2];
-        cur2++;
-    } else {
-        return std::nullopt;
-    }
-
-    cur = cur2;
-    return orb;
 }
 
 static GLubyte lerp(GLubyte start, GLubyte end, float mix) {
@@ -201,44 +41,9 @@ static std::array<GLubyte, 3> getIndexedColour(int index) {
     return { r, g, b };
 }
 
-bool GlOrPViewer::load53(QSpan<const qint64> symbols) {
-    // PLOT := Plot Begin End
-    //       | Plot Begin ORB (Sep ORB)* Sep? End
-    // ORB := Orb SNUMBER Sep SNUMBER Sep SNUMBER Sep UNUMBER Sep NONNEGATIVE_INTEGER
-    // UNUMBER := NONNEGATIVE_INTEGER Radix?
-    //          | Radix NONNEGATIVE_INTEGER
-    //          | NONNEGATIVE_INTEGER Radix NONNEGATIVE_INTEGER
-    // SNUMBER := UnaryMinus? UNUMBER
-
-    if(symbols.size() < 3) {
-        return false;
-    }
-    if(symbols[0] != PlotSymbol::Plot || symbols[1] != PlotSymbol::Begin) {
-        return false;
-    }
-    QVector<OrbInstance> orbs;
-    qsizetype cur = 2;
-    if(auto maybeOrb = consumeOrb(symbols, cur); maybeOrb.has_value()) {
-        orbs.append(*maybeOrb);
-        while(cur < symbols.size() && symbols[cur] == PlotSymbol::Sep) {
-            cur++;
-            if(cur < symbols.size() && symbols[cur] == PlotSymbol::End) {
-                // allow trailing Sep (C/Python-like semantics)
-                break;
-            }
-            auto maybeOrb2 = consumeOrb(symbols, cur);
-            if(!maybeOrb2.has_value()) {
-                return false;
-            }
-            orbs.append(*maybeOrb2);
-        }
-    }
-    if(cur != symbols.size() - 1 || symbols[cur] != PlotSymbol::End) {
-        return false;
-    }
-
+bool GlOrPViewer::load53(const DscrSpecialPlot &orbs) {
     this->m_drawInstances.clear();
-    for(auto &orb : orbs) {
+    for(auto &orb : orbs.orbs) {
         QMatrix4x4 model;
         DrawInstance oai;
 
@@ -300,6 +105,7 @@ void GlOrPViewer::initializeGL() {
                 indices.append(line[3].toInt() - 1);
             }
         }
+        icoSphFile.close();
     }
 
     m_vbo.create();
@@ -317,33 +123,9 @@ void GlOrPViewer::initializeGL() {
     this->m_ibo.allocate(indices.data(), indices.size() * sizeof(GLuint));
     this->m_numIboIndices = indices.size();
 
-    // QVector<DrawInstance> orbInstances;
-
-    // QMatrix4x4 model;
-    // DrawInstance oai;
-    // model.translate(QVector3D(0.1, 0.2, 0.3));
-    // model.scale(0.1);
-    // std::copy_n(model.constData(), 16, oai.m);
-    // oai.rgba[0] = 0;
-    // oai.rgba[1] = 255;
-    // oai.rgba[2] = 0;
-    // oai.rgba[3] = 255;
-    // orbInstances.append(oai);
-
-    // model.setToIdentity();
-    // model.translate(QVector3D(0.3, 0.4, 0.5));
-    // model.scale(0.3);
-    // std::copy_n(model.constData(), 16, oai.m);
-    // oai.rgba[0] = 0;
-    // oai.rgba[1] = 0;
-    // oai.rgba[2] = 255;
-    // oai.rgba[3] = 255;
-    // orbInstances.append(oai);
-
     this->m_ivbo.create();
     this->m_ivbo.bind();
-    // this->m_ivbo.allocate(orbInstances.data(), orbInstances.size() * sizeof(DrawInstance));
-    this->m_numArrayInstances = 0; //orbInstances.size();
+    this->m_numArrayInstances = 0;
     for(int i = 0; i < 4; i++) { // 2-5
         m_program->enableAttributeArray(2 + i);
         m_program->setAttributeBuffer(2 + i, GL_FLOAT, i * 4 * sizeof(GLfloat), 4, sizeof(DrawInstance));

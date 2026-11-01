@@ -113,9 +113,9 @@ void DscrClient::onSocketAboutToClose() {
     qDebug() << time << "DscrClient::onSocketAboutToClose" << this->socket.closeCode() << this->socket.closeReason();
 }
 
-void DscrClient::onSocketPong(quint64 elapsedTime, const QByteArray &payload) {
-    const QDateTime time = QDateTime::currentDateTime();
-    qDebug() << time << "DscrClient::onSocketPong" << elapsedTime << payload;
+void DscrClient::onSocketPong(quint64 /*elapsedTime*/, const QByteArray &/*payload*/) {
+    // const QDateTime time = QDateTime::currentDateTime();
+    // qDebug() << time << "DscrClient::onSocketPong" << elapsedTime << payload;
 
     this->clientPingWatchdogPongOutstandingCycles = 0;
 }
@@ -166,7 +166,7 @@ void DscrClient::onSocketStateChanged(QAbstractSocket::SocketState state) {
 
 void DscrClient::onSocketTextMessageReceived(const QString &text) {
     const QDateTime time = QDateTime::currentDateTime();
-    qDebug() << time << "DscrClient::onSocketTextMessageReceived" << text;
+    // qDebug() << time << "DscrClient::onSocketTextMessageReceived" << text;
 
     emit this->textMessageReceived(time, text);
 
@@ -217,8 +217,8 @@ void DscrClient::onSocketErrorOccurred(QAbstractSocket::SocketError error) {
 }
 
 void DscrClient::onTimerTimeout() {
-    const QDateTime time = QDateTime::currentDateTime();
-    qDebug() << time << "DscrClient::onTimerTimeout";
+    // const QDateTime time = QDateTime::currentDateTime();
+    // qDebug() << time << "DscrClient::onTimerTimeout";
 
     switch(this->clientState) {
         case ClientState::Connecting: {
@@ -256,7 +256,7 @@ void DscrClient::onClientPingWatchdogTimeout() {
     const QDateTime time = QDateTime::currentDateTime();
 
     if(this->clientPingWatchdogPongOutstandingCycles == 0) {
-        qDebug() << time << "DscrClient::onClientPingWatchdogTimeout" << "ping!";
+        // qDebug() << time << "DscrClient::onClientPingWatchdogTimeout" << "ping!";
         this->socket.ping();
     } else if(this->clientPingWatchdogPongOutstandingCycles < CLIENT_PING_TIMEOUT_CYCLE) {
         qDebug() << time << "DscrClient::onClientPingWatchdogTimeout" << "no pong" << this->clientPingWatchdogPongOutstandingCycles;
@@ -312,7 +312,7 @@ void DscrClient::reset() {
 
 void DscrClient::sendWsTextMessage(const QString &text) {
     const QDateTime time = QDateTime::currentDateTime();
-    qDebug() << time << "DscrClient::sendWsTextMessage" << text;
+    // qDebug() << time << "DscrClient::sendWsTextMessage" << text;
 
     emit this->textMessageSent(time, text);
     this->socket.sendTextMessage(text);

@@ -137,6 +137,10 @@ struct Fe56RDesymbolized fe56_reformatter_desymbolize(const struct Fe56ShadowDic
                                                       const int64_t *p_arr,
                                                       uintptr_t size);
 
+struct Fe56RDesymbolized fe56_simple_desymbolize(const struct Fe56ShadowDictionary *p_dictionary,
+                                                 const int64_t *p_arr,
+                                                 uintptr_t size);
+
 void fe56_rdesymbolized_free(struct Fe56RDesymbolized r_desymbolized);
 
 #ifdef __cplusplus

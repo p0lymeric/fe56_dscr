@@ -1,5 +1,6 @@
 pub mod mwis;
 pub mod reformatter;
+pub mod simple;
 
 use crate::dictionary;
 

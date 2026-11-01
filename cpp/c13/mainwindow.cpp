@@ -1,6 +1,8 @@
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
+#include "dscrtypes.h"
 
+#include <variant>
 #include <QAbstractTextDocumentLayout>
 #include <QCoreApplication>
 #include <QDebug>
@@ -16,6 +18,7 @@
 enum UserTextFormatProperty {
     TimeQDateTime = QTextFormat::Property::UserProperty,
     SignalIdqint64,
+    OrbPlot,
 };
 
 MainWindow::MainWindow(MainCore *core, QWidget *parent) :
@@ -123,10 +126,6 @@ MainWindow::MainWindow(MainCore *core, QWidget *parent) :
 
     this->core->dscrClient.register_(this->core->settings.get("dscrClient.callsign", 01445).toLongLong(), false);
     this->core->dscrClient.open(QUrl(this->core->settings.get("dscrClient.url", "wss://dscr-relay.dixonary.co.uk").toString()), true);
-
-    QVector<qint64> sus{-53 ,-14 ,-52 ,0 ,-3 ,0 ,-3 ,2 ,-3 ,6 ,-10 ,4 ,-3 ,0 ,-3 ,-52 ,0 ,-3 ,0 ,-3 ,0 ,-3 ,2 ,-10 ,0 ,-3 ,64 ,-3 ,-52 ,0 ,-3 ,0 ,-3 ,0 ,-3 ,2 ,-10 ,0 ,-3 ,64 ,-3 ,-52 ,0 ,-3 ,0 ,-3 ,1 ,-3 ,6 ,-10 ,4 ,-3 ,0 ,-3 ,-52 ,0 ,-3 ,0 ,-3 ,0 ,-3 ,6 ,-10 ,4 ,-3 ,0 ,-3 ,-52 ,-1 ,2 ,-3 ,0 ,-3 ,-1 ,2 ,-3 ,3 ,-10 ,0 ,-3 ,0 ,-3 ,-52 ,-1 ,2 ,-3 ,0 ,-3 ,-1 ,3 ,-3 ,3 ,-10 ,0 ,-3 ,0 ,-3 ,-52 ,-1 ,2 ,-3 ,0 ,-3 ,-1 ,4 ,-3 ,3 ,-10 ,0 ,-3 ,0 ,-3 ,-52 ,2 ,-3 ,0 ,-3 ,-1 ,2 ,-3 ,3 ,-10 ,0 ,-3 ,0 ,-3 ,-52 ,2 ,-3 ,0 ,-3 ,-1 ,3 ,-3 ,3 ,-10 ,0 ,-3 ,0 ,-3 ,-52 ,2 ,-3 ,0 ,-3 ,-1 ,4 ,-3 ,3 ,-10 ,0 ,-3 ,0 ,-3 ,-52 ,0 ,-3 ,-1 ,2 ,-3 ,2 ,-3 ,3 ,-10 ,4 ,-3 ,63 ,-3 ,-52 ,0 ,-3 ,2 ,-3 ,1 ,-3 ,4 ,-10 ,2 ,-3 ,0 ,-3 ,-52 ,0 ,-3 ,2 ,-3 ,0 ,-3 ,4 ,-10 ,2 ,-3 ,0 ,-15};
-    this->ui->glOrPViewer->load53(sus);
-    this->ui->glOrPViewer->update();
 }
 
 MainWindow::~MainWindow() {
@@ -148,6 +147,7 @@ bool MainWindow::eventFilterChatBrowser(QTextBrowser *browser, QEvent *event) {
                 QTextCharFormat format = cur.charFormat();
                 QVariant timeProp = format.property(UserTextFormatProperty::TimeQDateTime);
                 QVariant idProp = format.property(UserTextFormatProperty::SignalIdqint64);
+                QVariant plotProp = format.property(UserTextFormatProperty::OrbPlot);
                 if(timeProp.isValid()) {
                     // qDebug() << timeProp.toDateTime();
                     this->instantMouseoverToolTip.setText(timeProp.toDateTime().toString("yyyy-MM-dd HH:mm:ss t"));
@@ -160,12 +160,16 @@ bool MainWindow::eventFilterChatBrowser(QTextBrowser *browser, QEvent *event) {
                     this->instantMouseoverToolTip.adjustSize();
                     this->instantMouseoverToolTip.move(eventMouse->globalPosition().toPoint() + QPoint(15, 15));
                     this->instantMouseoverToolTip.show();
+                } else if(plotProp.isValid()) {
+                    browser->viewport()->setCursor(Qt::PointingHandCursor);
                 } else {
                     this->instantMouseoverToolTip.hide();
                 }
             } else {
                 // TODO may be edge cases where we don't see a MouseMove but still want to close the tooltip
                 this->instantMouseoverToolTip.hide();
+                // TODO not all cases where this should be called are covered but the cursor appears to be unset reliably in reality
+                browser->viewport()->unsetCursor();
             }
             break;
         }
@@ -181,6 +185,7 @@ bool MainWindow::eventFilterChatBrowser(QTextBrowser *browser, QEvent *event) {
                 // qDebug() << cur.charFormat();
                 QTextCharFormat format = cur.charFormat();
                 QVariant idProp = format.property(UserTextFormatProperty::SignalIdqint64);
+                QVariant plotProp = format.property(UserTextFormatProperty::OrbPlot);
                 if(idProp.isValid()) {
                     // qDebug() << idProp.toLongLong();
                     auto s = this->ui->dictionaryTable->model()->match(this->ui->dictionaryTable->model()->index(0, 0), Qt::DisplayRole, idProp.toLongLong(), 1, Qt::MatchExactly);
@@ -191,6 +196,9 @@ bool MainWindow::eventFilterChatBrowser(QTextBrowser *browser, QEvent *event) {
                         this->ui->addDictionaryId->setText(QString::number(idProp.toLongLong()));
                     }
                     // this->dictionaryModel.
+                } else if(plotProp.isValid()) {
+                    this->ui->glOrPViewer->load53(plotProp.value<DscrSpecialPlot>());
+                    this->ui->glOrPViewer->update();
                 }
             }
             break;
@@ -365,30 +373,37 @@ void MainWindow::onMessageEditorTextChanged() {
 }
 
 void MainWindow::pushToChatBrowser(const DscrTransmissionDbLinked &trns, QTextBrowser *browser) {
+    // If the vertical scroll bar is at the bottom, later update the scroll to follow the chat
     QScrollBar *vBar = browser->verticalScrollBar();
     int vBarOldPosition = vBar->value();
     bool vBarOldAtBottom = vBarOldPosition == vBar->maximum();
 
+    // Compute the position of the margin, to align chat text and callsign
+    // This method only works with monospaced fonts, and even so may be off by a few pixels
     int avgCharWidth = browser->fontMetrics().averageCharWidth();
     int sequenceWidth = avgCharWidth * (3 + 2);
 
+    // Declare the header and message blocks
     QTextBlockFormat headerBlockFormat;
     headerBlockFormat.setTopMargin(6);
     headerBlockFormat.setBottomMargin(0);
+
     QTextBlockFormat messageBlockFormat;
     messageBlockFormat.setTopMargin(0);
     messageBlockFormat.setLeftMargin(sequenceWidth);
 
+    // Declare individual text formats to style different parts of the message
     QTextCharFormat sequenceFormat;
     QBrush brush(QColor(41, 199, 227), Qt::SolidPattern);
     sequenceFormat.setForeground(brush);
-    // sequenceFormat.setToolTip(QLocale().toString(time.toLocalTime(), QLocale::LongFormat));
     sequenceFormat.setProperty(UserTextFormatProperty::TimeQDateTime, trns.time.toLocalTime());
+
     QTextCharFormat callsignFormat;
     QBrush brush2(QColor(196, 147, 0), Qt::SolidPattern);
     callsignFormat.setForeground(brush2);
     callsignFormat.setFontWeight(QFont::Bold);
     // QBrush brush3(QColor(202, 69, 209), Qt::SolidPattern);
+
     QTextCharFormat messageFormat;
     // messageFormat.setForeground(brush3);
 
@@ -402,6 +417,20 @@ void MainWindow::pushToChatBrowser(const DscrTransmissionDbLinked &trns, QTextBr
     cur.insertText(trns.msg.sequenceNum.has_value() ? QString::number(*trns.msg.sequenceNum).rightJustified(3, '0') : "???", sequenceFormat);
     cur.insertText("  ");
     cur.insertText(QString::number(trns.msg.from, 8).rightJustified(4, '0'), callsignFormat);
+
+    for(qsizetype i = 0; i < trns.specSequences.size(); i++) {
+        if(!std::holds_alternative<DscrSpecialPlot>(trns.specSequences[i].attachment)) {
+            continue;
+        }
+        QTextCharFormat plotLinkFormat;
+        plotLinkFormat.setProperty(UserTextFormatProperty::OrbPlot, QVariant::fromValue(std::get<DscrSpecialPlot>(trns.specSequences[i].attachment)));
+
+        plotLinkFormat.setForeground(QColor(202, 69, 209));
+        plotLinkFormat.setFontUnderline(true);
+
+        cur.insertBlock(messageBlockFormat);
+        cur.insertText(this->core->dictionary.translateSimple({-53, -163}), plotLinkFormat); // PLOT SEE
+    }
 
     cur.insertBlock(messageBlockFormat);
     Fe56RDesymbolized desym = fe56_reformatter_desymbolize(this->core->dictionary.fe56Dictionary, trns.msg.symbols.constData(), trns.msg.symbols.size());

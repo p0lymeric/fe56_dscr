@@ -167,7 +167,8 @@ QVector<DscrTransmissionDbLinked> TransmissionProcessor::getDbTransmissions(EncK
             time,
             msgId,
             encKey.isNull() ? std::nullopt : std::optional<qint64>(encKey.toLongLong()),
-            *trns
+            *trns,
+            DscrSpecialSequence::findAll(trns->symbols)
         });
     }
     if(select->lastError().isValid()) {
@@ -195,7 +196,13 @@ void TransmissionProcessor::onWsMessageLogDscrTransmissionSent(const QDateTime &
                             encKey = transmission->symbols[1];
                         }
                     }
-                    emit this->dscrTransmissionSent(DscrTransmissionDbLinked { time, msgId, encKey, *transmission });
+                    emit this->dscrTransmissionSent(DscrTransmissionDbLinked {
+                        time,
+                        msgId,
+                        encKey,
+                        *transmission,
+                        DscrSpecialSequence::findAll(transmission->symbols)
+                    });
                 }
             }
             break;
@@ -218,7 +225,13 @@ void TransmissionProcessor::onWsMessageLogDscrTransmissionReceived(const QDateTi
                         encKey = transmission->symbols[1];
                     }
                 }
-                emit this->dscrTransmissionReceived(DscrTransmissionDbLinked { time, msgId, encKey, *transmission });
+                emit this->dscrTransmissionReceived(DscrTransmissionDbLinked {
+                    time,
+                    msgId,
+                    encKey,
+                    *transmission,
+                    DscrSpecialSequence::findAll(transmission->symbols)
+                });
             }
             break;
         }
