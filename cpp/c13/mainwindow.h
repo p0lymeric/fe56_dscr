@@ -3,6 +3,7 @@
 #include "maincore.h"
 #include "models/chatmodel.h"
 #include "models/dictionarytablemodel.h"
+#include "glorpviewer.h"
 
 #include <QLabel>
 #include <QMainWindow>
@@ -37,6 +38,7 @@ private:
     QStringListModel usersModel;
     DictionaryTableModel dictionaryModel;
     QLabel instantMouseoverToolTip;
+    GlOrPViewer instantGlorp;
     // TODO temp for reacting to dictionary updates
     ChatModel chatModelUnenc;
     ChatModel chatModelAll;

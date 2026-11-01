@@ -35,6 +35,7 @@ void ChatModel::onTransmissionProcessorDscrTransmissionReceived(const DscrTransm
         (this->encKeySelect.showAllKeyed && trns.encKey.has_value()) ||
         (this->encKeySelect.showKeyed && trns.encKey.has_value() && encKeySelect.encKey == *trns.encKey)
     ) {
+        this->chatMessages.append(trns);
         emit this->appendChatMessage(trns);
     }
 }

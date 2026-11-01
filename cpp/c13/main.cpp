@@ -64,7 +64,7 @@ int main(int argc, char *argv[]) {
         QSplitter::handle:pressed { background: #0CED45; }
     )");
     loadQrcFonts();
-    QApplication::setFont(QFont("B612 Mono", 12));
+    QApplication::setFont(QFont("B612 Mono", 11));
 
     // c13.lock protects against concurrent app launches mutually clobbering c13.log and c13.sqlite3
     // This could be generalized in the future if the app were to receive a file prefix argument

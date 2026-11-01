@@ -60,6 +60,9 @@ MainWindow::MainWindow(MainCore *core, QWidget *parent) :
     this->ui->messageEditor->installEventFilter(this);
     this->instantMouseoverToolTip.setWindowFlags(Qt::ToolTip);
     this->instantMouseoverToolTip.setAttribute(Qt::WA_TransparentForMouseEvents);
+    this->instantGlorp.setWindowFlags(Qt::ToolTip);
+    this->instantGlorp.setAttribute(Qt::WA_TransparentForMouseEvents);
+    this->instantGlorp.setFixedSize(100, 100);
 
     // Show in dictionary or populate add box on clicking hyperlink
     QObject::connect(this->ui->addDictionaryButton, &QPushButton::clicked, this, [&](bool) {
@@ -162,14 +165,24 @@ bool MainWindow::eventFilterChatBrowser(QTextBrowser *browser, QEvent *event) {
                     this->instantMouseoverToolTip.show();
                 } else if(plotProp.isValid()) {
                     browser->viewport()->setCursor(Qt::PointingHandCursor);
+                    this->instantGlorp.load53(plotProp.value<DscrSpecialPlot>());
+                    // FIXME forces a redraw every mouseover, should probably perform a value-based dirty check in load53 and define updateIfDirty
+                    this->instantGlorp.update();
+                    this->instantGlorp.move(eventMouse->globalPosition().toPoint() + QPoint(15, 15));
+                    this->instantGlorp.show();
                 } else {
+                    // FIXME this is slightly incorrect if the cursor were to cross between showing instantMouseoverToolTip and instantGlorp
+                    // we would not hide the other in that case
                     this->instantMouseoverToolTip.hide();
+                    browser->viewport()->unsetCursor();
+                    this->instantGlorp.hide();
                 }
             } else {
                 // TODO may be edge cases where we don't see a MouseMove but still want to close the tooltip
                 this->instantMouseoverToolTip.hide();
                 // TODO not all cases where this should be called are covered but the cursor appears to be unset reliably in reality
                 browser->viewport()->unsetCursor();
+                this->instantGlorp.hide();
             }
             break;
         }
