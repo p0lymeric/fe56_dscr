@@ -78,33 +78,24 @@ MainWindow::MainWindow(MainCore *core, QWidget *parent) :
         }
     });
 
-    auto lambdaRetranslateUnenc = [&]() {
+    auto lambdaRetranslate = [&](QTextBrowser *browser) {
         emit this->onMessageEditorTextChanged();
         // we will want to eventually drive the chat browser with a message model
-        QScrollBar *vBar = this->ui->chatBrowser->verticalScrollBar();
+        QScrollBar *vBar = browser->verticalScrollBar();
         int vBarOldPosition = vBar->value();
         bool vBarOldAtBottom = vBarOldPosition == vBar->maximum();
-        this->ui->chatBrowser->clear();
+        // QElapsedTimer stopwatch;
+        // stopwatch.start();
+        QTextCursor cur(browser->document());
+        cur.beginEditBlock();
+        // browser->clear();
+        // qDebug() << "clear time" << stopwatch.durationElapsed();
+        // stopwatch.start();
         for(auto &chatMsg : this->chatModelUnenc.getChatMessages()) {
-            this->pushToChatBrowser(chatMsg, this->ui->chatBrowser);
+            this->pushToChatBrowser(chatMsg, browser);
         }
-        if(vBarOldAtBottom || vBarOldPosition > vBar->maximum()) {
-            vBar->setValue(vBar->maximum());
-        } else {
-            vBar->setValue(vBarOldPosition);
-        }
-    };
-
-    auto lambdaRetranslateAll = [&]() {
-        emit this->onMessageEditorTextChanged();
-        // we will want to eventually drive the chat browser with a message model
-        QScrollBar *vBar = this->ui->chatBrowser2->verticalScrollBar();
-        int vBarOldPosition = vBar->value();
-        bool vBarOldAtBottom = vBarOldPosition == vBar->maximum();
-        this->ui->chatBrowser2->clear();
-        for(auto &chatMsg : this->chatModelAll.getChatMessages()) {
-            this->pushToChatBrowser(chatMsg, this->ui->chatBrowser2);
-        }
+        cur.endEditBlock();
+        // qDebug() << "retranslate time" << stopwatch.durationElapsed();
         if(vBarOldAtBottom || vBarOldPosition > vBar->maximum()) {
             vBar->setValue(vBar->maximum());
         } else {
@@ -113,16 +104,16 @@ MainWindow::MainWindow(MainCore *core, QWidget *parent) :
     };
 
     QObject::connect(&this->chatModelUnenc, &ChatModel::retranslateAll, this, [=]() {
-        lambdaRetranslateUnenc();
+        lambdaRetranslate(this->ui->chatBrowser);
     });
     QObject::connect(&this->chatModelAll, &ChatModel::retranslateAll, this, [=]() {
-        lambdaRetranslateAll();
+        lambdaRetranslate(this->ui->chatBrowser2);
     });
     // temp to force a retranslate
-    QObject::connect(this->ui->connectionPill, &QPushButton::clicked, this, [=](bool) {
-        lambdaRetranslateUnenc();
-        lambdaRetranslateAll();
-    });
+    // QObject::connect(this->ui->connectionPill, &QPushButton::clicked, this, [=](bool) {
+    //     lambdaRetranslate(this->ui->chatBrowser);
+    //     lambdaRetranslate(this->ui->chatBrowser2);
+    // });
 
     this->chatModelUnenc.init(&this->core->transmissionProcessor, &this->core->dictionary, EncKeySelect { true, false, false, 0 });
     this->chatModelAll.init(&this->core->transmissionProcessor, &this->core->dictionary, EncKeySelect { true, true, false, 0 });

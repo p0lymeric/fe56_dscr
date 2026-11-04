@@ -28,6 +28,8 @@ qt_add_executable(c13
 
     mainwindow.h mainwindow.cpp mainwindow.ui
     serverconnectdialog.h serverconnectdialog.cpp serverconnectdialog.ui
+    connectionpill.h connectionpill.cpp connectionpill.ui
+    dictionarylongeditor.h dictionarylongeditor.cpp dictionarylongeditor.ui
 
     glorpviewer.h glorpviewer.cpp
 

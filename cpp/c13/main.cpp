@@ -55,7 +55,8 @@ int main(int argc, char *argv[]) {
     QApplication::setStyle("fusion");
     a.setStyleSheet(R"(
         QWidget { background: #001405; color: #0CED45; selection-background-color: #0CED45; selection-color: #001405; border-radius: 6px; }
-        QTextEdit, QTextBrowser, QListView, QLineEdit { border: 1px solid #086921; }
+        QTextEdit, QTextBrowser, QListView, QLineEdit, QPlainTextEdit, QPushButton, QToolButton { border: 1px solid #086921; }
+        QToolButton:checked { background: #0CED45; color: #001405 }
         QScrollBar { background: #001405; }
         QScrollBar::handle { background: #086921; border-radius: 3px; min-height: 20px; }
         QScrollBar::add-line, QScrollBar::sub-line { width: 0; height: 0; }
