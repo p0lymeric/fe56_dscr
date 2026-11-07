@@ -88,7 +88,7 @@ MainWindow::MainWindow(MainCore *core, QWidget *parent) :
         // stopwatch.start();
         QTextCursor cur(browser->document());
         cur.beginEditBlock();
-        // browser->clear();
+        browser->clear();
         // qDebug() << "clear time" << stopwatch.durationElapsed();
         // stopwatch.start();
         for(auto &chatMsg : this->chatModelUnenc.getChatMessages()) {
