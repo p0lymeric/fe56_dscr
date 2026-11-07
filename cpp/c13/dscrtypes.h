@@ -36,11 +36,50 @@ struct DscrSpecialEncrypted {
         AddKey = -65534,
         RemoveKey = -65533,
         EncryptedMessage = -65535,
+        SkeletonKey = -65536,
     };
 
     qint64 encKey;
 
     static std::optional<DscrSpecialEncrypted> find(QSpan<const qint64> symbols);
+};
+
+struct DscrSpecialMusic {
+    enum Symbol {
+        Sep = -3,
+        Radix = -10,
+        X = -11,
+        Begin = -14,
+        End = -15,
+        Before = -122,
+        Music = -577,
+        NoteSym = -605003,
+    };
+
+    static constexpr float HE6SECOND_PER_SECOND = 0.8069224;
+    struct Note {
+        // Time units are in He-6 seconds
+        float startTime;
+        float noteDuration;
+        float freq;
+    };
+
+    QVector<Note> pianoRoll;
+
+    // struct Player;
+    // struct PianoRoll {
+    //     QVector<Note> roll;
+    //     Player makePlayer();
+    // };
+    // struct Player {
+    //     PianoRoll pianoRoll;
+    //     qsizetype cursor;
+
+    //     std::optional<Note> next();
+    // };
+
+    static std::optional<DscrSpecialMusic> fromSymbols(QSpan<const qint64> symbols, bool endMustTerminate, qsizetype *endWritebackNullable);
+
 };
 
 struct DscrSpecialPlot {

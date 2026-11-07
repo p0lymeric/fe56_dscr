@@ -1,3 +1,5 @@
+#include <cmath>
+#include <optional>
 #include "dscrtypes.h"
 
 QString DscrMessage::encodeWsMessage() {
@@ -168,14 +170,33 @@ std::optional<DscrSpecialEncrypted> DscrSpecialEncrypted::find(QSpan<const qint6
     return std::nullopt;
 }
 
-static float asDecimalFraction(qint64 nonNegativeInt) {
-    // Known issue: It's not possible to represent decimals with fractional components that start with 0,
-    // due to how DSCR clients canonically pack numbers
+static float asDecimalFraction(qint64 nonNegativeInt, qint64 leadingZeroes) {
     float scaleFactor = 1.0f;
     while(scaleFactor <= float(nonNegativeInt)) {
         scaleFactor *= 10.0f;
     }
+    scaleFactor *= std::pow(10.0f, leadingZeroes);
     return float(nonNegativeInt) / scaleFactor;
+}
+
+static std::optional<float> consumeFraction(QSpan<const qint64> symbols, qsizetype &cur) {
+    qsizetype cur2 = cur;
+
+    int leadingZeroes = 0;
+    while(cur2 < symbols.size() && symbols[cur2] == 0) {
+        leadingZeroes++;
+        cur2++;
+    }
+
+    if(cur2 < symbols.size() && symbols[cur2] > 0) {
+        cur = cur2 + 1;
+        return asDecimalFraction(symbols[cur2], leadingZeroes);
+    } else if(leadingZeroes > 0) {
+        cur = cur2;
+        return 0.0f;
+    }
+
+    return std::nullopt;
 }
 
 static std::optional<float> consumeUnsignedFloat(QSpan<const qint64> symbols, qsizetype &cur) {
@@ -190,12 +211,10 @@ static std::optional<float> consumeUnsignedFloat(QSpan<const qint64> symbols, qs
         if(cur2 >= symbols.size()) {
             return std::nullopt;
         }
-        // Radix NONNEGATIVE_INTEGER
-        if(symbols[cur2] >= 0) {
-            float accumulator = asDecimalFraction(symbols[cur2]);
-            cur2++;
+        // Radix (ZERO)* NONNEGATIVE_INTEGER
+        if(auto fraction = consumeFraction(symbols, cur2); fraction.has_value()) {
             cur = cur2;
-            return accumulator;
+            return fraction;
         } else {
             return std::nullopt;
         }
@@ -214,10 +233,9 @@ static std::optional<float> consumeUnsignedFloat(QSpan<const qint64> symbols, qs
                 cur = cur2;
                 return accumulator;
             }
-            if(symbols[cur2] >= 0) {
-                // NONNEGATIVE_INTEGER Radix NONNEGATIVE_INTEGER
-                accumulator += asDecimalFraction(symbols[cur2]);
-                cur2++;
+            if(auto fraction = consumeFraction(symbols, cur2); fraction.has_value()) {
+                // NONNEGATIVE_INTEGER Radix (ZERO)* NONNEGATIVE_INTEGER
+                accumulator += *fraction;
                 cur = cur2;
                 return accumulator;
             } else {
@@ -275,26 +293,26 @@ static std::optional<DscrSpecialPlot::Orb> consumeOrb(QSpan<const qint64> symbol
 
     DscrSpecialPlot::Orb orb;
     auto maybeX = consumeSignedFloat(symbols, cur2);
-    if(maybeX.has_value() && consumeSep(symbols, cur2)) {
-        orb.x = *maybeX;
+    if(consumeSep(symbols, cur2)) {
+        orb.x = maybeX.value_or(0);
     } else {
         return std::nullopt;
     }
     auto maybeZ = consumeSignedFloat(symbols, cur2);
-    if(maybeZ.has_value() && consumeSep(symbols, cur2)) {
-        orb.z = -*maybeZ;
+    if(consumeSep(symbols, cur2)) {
+        orb.z = -maybeZ.value_or(0);
     } else {
         return std::nullopt;
     }
     auto maybeY = consumeSignedFloat(symbols, cur2);
-    if(maybeY.has_value() && consumeSep(symbols, cur2)) {
-        orb.y = *maybeY;
+    if(consumeSep(symbols, cur2)) {
+        orb.y = maybeY.value_or(0);
     } else {
         return std::nullopt;
     }
-    auto maybeR = consumeUnsignedFloat(symbols, cur2);
-    if(maybeR.has_value() && consumeSep(symbols, cur2)) {
-        orb.d = *maybeR;
+    auto maybeD = consumeUnsignedFloat(symbols, cur2);
+    if(consumeSep(symbols, cur2)) {
+        orb.d = maybeD.value_or(0);
     } else {
         return std::nullopt;
     }
@@ -302,21 +320,141 @@ static std::optional<DscrSpecialPlot::Orb> consumeOrb(QSpan<const qint64> symbol
         orb.colourIdx = symbols[cur2];
         cur2++;
     } else {
-        return std::nullopt;
+        orb.colourIdx = 0;
     }
 
     cur = cur2;
     return orb;
 }
 
+static std::optional<QVector<DscrSpecialMusic::Note>> consumeChord(
+    QSpan<const qint64> symbols,
+    qsizetype &cur,
+    QHash<qint64, QVector<DscrSpecialMusic::Note>> &rolls
+) {
+    // qsizetype cur2 = cur;
+
+    // cur = cur2;
+    // return seq;
+
+    // TODO
+
+    return std::nullopt;
+}
+
+static std::optional<QVector<DscrSpecialMusic::Note>> consumeSequence(
+    QSpan<const qint64> symbols,
+    qsizetype &cur,
+    QHash<qint64, QVector<DscrSpecialMusic::Note>> &rolls
+) {
+    qsizetype cur2 = cur;
+
+    auto seq = consumeChord(symbols, cur2, rolls);
+    if(!seq.has_value()) {
+        return std::nullopt;
+    }
+
+    // while(cur2 < symbols.size() && symbols[cur2] == DscrSpecialMusic::Symbol::NoteSym) {
+    // TODO
+    // }
+
+    cur = cur2;
+    return seq;
+}
+
+static std::optional<QVector<DscrSpecialMusic::Note>> consumeGroup(
+    QSpan<const qint64> symbols,
+    qsizetype &cur,
+    QHash<qint64, QVector<DscrSpecialMusic::Note>> &rolls
+) {
+    qsizetype cur2 = cur;
+    if(cur2 >= symbols.size() || symbols[cur2] != DscrSpecialMusic::Symbol::Begin) {
+        return std::nullopt;
+    }
+    cur2++;
+
+    auto seq = consumeSequence(symbols, cur2, rolls);
+    if(!seq.has_value()) {
+        return std::nullopt;
+    }
+
+    if(cur2 >= symbols.size() || symbols[cur2] != DscrSpecialMusic::Symbol::End) {
+        return std::nullopt;
+    }
+    cur2++;
+
+    cur = cur2;
+    return seq;
+}
+
+std::optional<DscrSpecialMusic> DscrSpecialMusic::fromSymbols(QSpan<const qint64> symbols, bool endMustTerminate, qsizetype *endWritebackNullable) {
+    // Grammar based off 3544's implementation
+    // https://github.com/electraminer/relay3544/blob/main/src/spoilers/Song.ts
+    // MUSIC := Music GROUP
+    // GROUP := Begin SEQUENCE End
+    // SEQUENCE := CHORD (Before CHORD)*
+    // ITEM := (NOTE | VARDECL | VAR | GROUP) Sep?
+    // CHORD := ITEM*
+    // VARDECL := VAR GROUP
+    // VAR := X Nonnegative
+    // NOTE := Note UNUMBER? Sep UNUMBER? Sep UNUMBER?
+    // UNUMBER := Nonnegative Radix?
+    //          | Radix FRACTION
+    //          | Nonnegative Radix FRACTION
+    // FRACTION := (Zero)* Nonnegative
+    // Nonnegative := ">=0"
+    // Zero := "0"
+    // Sep := "-3"
+    // Radix := "-10"
+    // X := "-11"
+    // Begin := "-14"
+    // End := "-15"
+    // Before := "-122"
+    // Music := "-577"
+    // NoteSym := "-605003"
+
+    if(symbols.size() < 1) {
+        return std::nullopt;
+    }
+
+    if(symbols[0] != DscrSpecialMusic::Symbol::Music) {
+        return std::nullopt;
+    }
+
+    QHash<qint64, QVector<DscrSpecialMusic::Note>> rolls;
+    qsizetype cur = 1;
+    if(auto pianoRoll = consumeGroup(symbols, cur, rolls); pianoRoll.has_value()) {
+        if(endMustTerminate && cur != symbols.size()) {
+            return std::nullopt;
+        }
+        if(endWritebackNullable != nullptr) {
+            *endWritebackNullable = cur;
+        }
+        return DscrSpecialMusic { *pianoRoll };
+    }
+
+    return std::nullopt;
+}
+
 std::optional<DscrSpecialPlot> DscrSpecialPlot::fromSymbols(QSpan<const qint64> symbols, bool endMustTerminate, qsizetype *endWritebackNullable) {
+    // Highly tolerant grammar to match some other client behaviours
     // PLOT := Plot Begin End
-    //       | Plot Begin ORB (Sep ORB)* Sep? End
-    // ORB := Orb SNUMBER Sep SNUMBER Sep SNUMBER Sep UNUMBER Sep NONNEGATIVE_INTEGER
-    // UNUMBER := NONNEGATIVE_INTEGER Radix?
-    //          | Radix NONNEGATIVE_INTEGER
-    //          | NONNEGATIVE_INTEGER Radix NONNEGATIVE_INTEGER
+    //       | Plot Begin ORB (Sep? ORB)* Sep? End
+    // ORB := Orb SNUMBER? Sep SNUMBER? Sep SNUMBER? Sep UNUMBER? Sep Nonnegative?
+    // UNUMBER := Nonnegative Radix?
+    //          | Radix FRACTION
+    //          | Nonnegative Radix FRACTION
+    // FRACTION := (Zero)* Nonnegative
     // SNUMBER := UnaryMinus? UNUMBER
+    // Nonnegative := ">=0"
+    // Zero := "0"
+    // UnaryMinus := "-1"
+    // Sep := "-3"
+    // Radix := "-10"
+    // Begin := "-14"
+    // End := "-15"
+    // Orb := "-52"
+    // Plot := "-53"
 
     if(symbols.size() < 3) {
         return std::nullopt;
@@ -328,8 +466,10 @@ std::optional<DscrSpecialPlot> DscrSpecialPlot::fromSymbols(QSpan<const qint64> 
     qsizetype cur = 2;
     if(auto maybeOrb = consumeOrb(symbols, cur); maybeOrb.has_value()) {
         orbs.append(*maybeOrb);
-        while(cur < symbols.size() && symbols[cur] == DscrSpecialPlot::Symbol::Sep) {
-            cur++;
+        while(cur < symbols.size()) {
+            if(symbols[cur] == DscrSpecialPlot::Symbol::Sep) {
+                cur++;
+            }
             if(cur < symbols.size() && symbols[cur] == DscrSpecialPlot::Symbol::End) {
                 // allow trailing Sep (C/Python-like semantics)
                 break;
