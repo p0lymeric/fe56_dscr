@@ -42,19 +42,26 @@ static std::array<GLubyte, 3> getIndexedColour(int index) {
 }
 
 bool GlOrPViewer::load53(const DscrSpecialPlot &orbs) {
+    this->m_boundingSphereRadius = 0.0f;
     this->m_drawInstances.clear();
     for(auto &orb : orbs.orbs) {
         QMatrix4x4 model;
         DrawInstance oai;
 
         model.translate(orb.x, orb.y, orb.z);
-        model.scale(orb.d / 2.0f);
+        float orbRadius = orb.d / 2.0f;
+        model.scale(orbRadius);
         std::copy_n(model.constData(), 16, oai.m);
         auto colour = getIndexedColour(orb.colourIdx);
         oai.rgba[0] = colour[0];
         oai.rgba[1] = colour[1];
         oai.rgba[2] = colour[2];
         oai.rgba[3] = 255;
+
+        float modelOuterExtremity = QVector3D(orb.x, orb.y, orb.z).length() + orbRadius;
+        if(modelOuterExtremity > this->m_boundingSphereRadius) {
+            this->m_boundingSphereRadius = modelOuterExtremity;
+        }
 
         this->m_drawInstances.append(oai);
     }
@@ -142,8 +149,7 @@ void GlOrPViewer::initializeGL() {
 }
 
 void GlOrPViewer::resizeGL(int w, int h) {
-    m_projection.setToIdentity();
-    m_projection.perspective(45.0f, w / float(h), 0.01f, 100.0f);
+    this->m_currentDrawboxAspectRatio = w / float(h);
 }
 
 void GlOrPViewer::paintGL() {
@@ -152,16 +158,30 @@ void GlOrPViewer::paintGL() {
     f->glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     f->glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-    QVector3D cameraPos(0.0f, 0.0f, 50.0f);
+    // TODO should probably compute an offset bounding sphere and translate camera instead of fixing the
+    // centre of the sphere at (0, 0, 0) for views that don't support zoom/rotation control (e.g. instantGlorp)
+    float cameraVerticalAngle = M_PI / 4.0f; // 45 deg
+    float cameraVerticalAngleHalf = cameraVerticalAngle / 2.0f;
+    float cameraHorizAngleHalf = std::atan(std::tan(cameraVerticalAngleHalf) * this->m_currentDrawboxAspectRatio);
+    float cameraZDistance = this->m_boundingSphereRadius / std::sin(std::min(cameraVerticalAngleHalf, cameraHorizAngleHalf));
+    QMatrix4x4 projection;
+    projection.perspective(
+        qRadiansToDegrees(cameraVerticalAngle), // bleh
+        this->m_currentDrawboxAspectRatio,
+        cameraZDistance - this->m_boundingSphereRadius,
+        cameraZDistance + this->m_boundingSphereRadius
+    );
+
+    QVector3D cameraPos(0.0f, 0.0f, cameraZDistance);
     QVector3D targetPos(0.0f, 0.0f, 0.0f);
     QVector3D cameraUp(0.0f, 1.0f, 0.0f);
     QMatrix4x4 view;
     view.lookAt(cameraPos, targetPos, cameraUp);
 
     this->m_program->bind();
-    this->m_program->setUniformValue("vp", m_projection * view);
+    this->m_program->setUniformValue("vp", projection * view);
     this->m_program->setUniformValue("viewPos", cameraPos);
-    this->m_program->setUniformValue("lightPos", cameraPos + QVector3D(-2.0f, 2.0f, 0.0f));
+    this->m_program->setUniformValue("lightPos", cameraPos + this->m_boundingSphereRadius * QVector3D(-1.0f, 1.0f, 0.0f));
 
     if(this->m_drawInstancesDirty) {
         this->m_ivbo.bind();

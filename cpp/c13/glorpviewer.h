@@ -40,7 +40,8 @@ private:
     int m_numArrayInstances = 0;
     QOpenGLShaderProgram *m_program = nullptr;
 
-    QMatrix4x4 m_projection;
     QVector<DrawInstance> m_drawInstances;
     bool m_drawInstancesDirty = false;;
+    float m_boundingSphereRadius = 0.0f;
+    float m_currentDrawboxAspectRatio = 1.0f;
 };
