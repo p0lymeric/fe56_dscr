@@ -15,6 +15,12 @@ This repository gratefully includes materials from the following works.
   * SIL Open Font License 1.1
   * https://fonts.google.com/specimen/B612+Mono
 
+* miniaudio
+  * `cpp/c13/third_party/miniaudio`
+  * `David Reid - mackron@gmail.com`
+  * Public Domain OR MIT No Attribution
+  * https://github.com/mackron/miniaudio/blob/master/LICENSE
+
 * Unicode Character Database
   * `rust/crates/fe56_ucd_sys/third_party/ucd`
   * `Copyright © 1991-2026 Unicode, Inc.`

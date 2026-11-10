@@ -33,6 +33,8 @@ qt_add_executable(c13
 
     glorpviewer.h glorpviewer.cpp
 
+    third_party/miniaudio/miniaudio.c
+
 )
 
 target_link_libraries(c13
@@ -47,6 +49,7 @@ target_link_libraries(c13
 target_include_directories(c13
     PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}
+        ${CMAKE_CURRENT_SOURCE_DIR}/third_party/miniaudio
 )
 
 # TODO probably port symbolizer to C++
