@@ -97,6 +97,10 @@ fn criterion_benchmark(c: &mut Criterion) {
     let human_second = std::fs::read_to_string(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/artifacts/human_second.txt")).unwrap();
     c.bench_function("casefold human second", |b| b.iter(|| dictionary.casefold(black_box(&human_second))));
     c.bench_function("tokenize human second", |b| b.iter(|| MwisSymbolizer.symbolize(black_box(&dictionary), black_box(&human_second))));
+
+    let octoling_plot = std::fs::read_to_string(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/artifacts/octoling_plot.txt")).unwrap();
+    c.bench_function("casefold octoling plot", |b| b.iter(|| dictionary.casefold(black_box(&octoling_plot))));
+    c.bench_function("tokenize octoling plot", |b| b.iter(|| MwisSymbolizer.symbolize(black_box(&dictionary), black_box(&octoling_plot))));
 }
 
 criterion_group!(benches, criterion_benchmark);

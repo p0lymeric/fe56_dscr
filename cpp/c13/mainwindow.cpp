@@ -21,6 +21,16 @@ enum UserTextFormatProperty {
     OrbPlot,
 };
 
+bool MainWindow::selectDictionaryEntry(qint64 id) {
+    auto s = this->ui->dictionaryTable->model()->match(this->ui->dictionaryTable->model()->index(0, 0), Qt::DisplayRole, id, 1, Qt::MatchExactly);
+    if(!s.isEmpty()) {
+        this->ui->dictionaryTable->selectionModel()->setCurrentIndex(s.first(), QItemSelectionModel::ClearAndSelect | QItemSelectionModel::Rows);
+        this->ui->dictionaryTable->scrollTo(s.first(), QAbstractItemView::PositionAtCenter);
+        return true;
+    }
+    return false;
+}
+
 MainWindow::MainWindow(MainCore *core, QWidget *parent) :
     QMainWindow(parent),
     ui(new Ui::MainWindow),
@@ -70,31 +80,27 @@ MainWindow::MainWindow(MainCore *core, QWidget *parent) :
         qint64 id = this->ui->addDictionaryId->text().toLongLong(&id_ok);
         if(id_ok && id < 0) {
             this->core->dictionary.add(id);
-            auto s = this->ui->dictionaryTable->model()->match(this->ui->dictionaryTable->model()->index(0, 0), Qt::DisplayRole, id, 1, Qt::MatchExactly);
-            if(!s.isEmpty()) {
-                this->ui->dictionaryTable->selectionModel()->setCurrentIndex(s.first(), QItemSelectionModel::ClearAndSelect | QItemSelectionModel::Rows);
-                this->ui->dictionaryTable->scrollTo(s.first(), QAbstractItemView::PositionAtCenter);
-            }
+            this->selectDictionaryEntry(id);
         }
     });
 
-    auto lambdaRetranslate = [&](QTextBrowser *browser) {
+    auto lambdaRetranslate = [&](ChatModel &chatModel, QTextBrowser *browser) {
         emit this->onMessageEditorTextChanged();
-        // we will want to eventually drive the chat browser with a message model
         QScrollBar *vBar = browser->verticalScrollBar();
         int vBarOldPosition = vBar->value();
         bool vBarOldAtBottom = vBarOldPosition == vBar->maximum();
         // QElapsedTimer stopwatch;
         // stopwatch.start();
-        QTextCursor cur(browser->document());
-        cur.beginEditBlock();
+        // NB: For some reason, surrounding the retranslation in an edit block breaks scrollbar repositioning
+        // QTextCursor cur(browser->document());
+        // cur.beginEditBlock();
         browser->clear();
         // qDebug() << "clear time" << stopwatch.durationElapsed();
         // stopwatch.start();
-        for(auto &chatMsg : this->chatModelUnenc.getChatMessages()) {
+        for(auto &chatMsg : chatModel.getChatMessages()) {
             this->pushToChatBrowser(chatMsg, browser);
         }
-        cur.endEditBlock();
+        // cur.endEditBlock();
         // qDebug() << "retranslate time" << stopwatch.durationElapsed();
         if(vBarOldAtBottom || vBarOldPosition > vBar->maximum()) {
             vBar->setValue(vBar->maximum());
@@ -104,16 +110,33 @@ MainWindow::MainWindow(MainCore *core, QWidget *parent) :
     };
 
     QObject::connect(&this->chatModelUnenc, &ChatModel::retranslateAll, this, [=]() {
-        lambdaRetranslate(this->ui->chatBrowser);
+        lambdaRetranslate(this->chatModelUnenc, this->ui->chatBrowser);
     });
     QObject::connect(&this->chatModelAll, &ChatModel::retranslateAll, this, [=]() {
-        lambdaRetranslate(this->ui->chatBrowser2);
+        lambdaRetranslate(this->chatModelAll, this->ui->chatBrowser2);
     });
     // temp to force a retranslate
     // QObject::connect(this->ui->connectionPill, &QPushButton::clicked, this, [=](bool) {
     //     lambdaRetranslate(this->ui->chatBrowser);
     //     lambdaRetranslate(this->ui->chatBrowser2);
     // });
+
+    QObject::connect(this->ui->dictionaryTable->selectionModel(), &QItemSelectionModel::currentRowChanged, this, [this](const QModelIndex &current, const QModelIndex &/*previous*/) {
+        this->ui->dictionaryLongEditor->load(this->core->dictionary.getDefinitionFlat(current.row()));
+    });
+
+    QObject::connect(this->ui->dictionaryLongEditor, &DictionaryLongEditor::saveButtonClicked, this, [this](qint64 origSignal, const Definition &def) {
+        this->core->dictionary.reannotate(origSignal, def.desc, static_cast<int>(def.formatBefore), static_cast<int>(def.formatAfter), def.breakOnDouble);
+        if(def.word != "") {
+            this->core->dictionary.rename(origSignal, def.word);
+        }
+        if(origSignal != def.signal) {
+            this->core->dictionary.relink(origSignal, def.signal);
+        }
+        if(auto defNew = this->core->dictionary.getDefinition(def.signal); defNew.has_value()) {
+            this->ui->dictionaryLongEditor->load(*defNew);
+        }
+    });
 
     this->chatModelUnenc.init(&this->core->transmissionProcessor, &this->core->dictionary, EncKeySelect { true, false, false, 0 });
     this->chatModelAll.init(&this->core->transmissionProcessor, &this->core->dictionary, EncKeySelect { true, true, false, 0 });
@@ -192,11 +215,7 @@ bool MainWindow::eventFilterChatBrowser(QTextBrowser *browser, QEvent *event) {
                 QVariant plotProp = format.property(UserTextFormatProperty::OrbPlot);
                 if(idProp.isValid()) {
                     // qDebug() << idProp.toLongLong();
-                    auto s = this->ui->dictionaryTable->model()->match(this->ui->dictionaryTable->model()->index(0, 0), Qt::DisplayRole, idProp.toLongLong(), 1, Qt::MatchExactly);
-                    if(!s.isEmpty()) {
-                        this->ui->dictionaryTable->selectionModel()->setCurrentIndex(s.first(), QItemSelectionModel::ClearAndSelect | QItemSelectionModel::Rows);
-                        this->ui->dictionaryTable->scrollTo(s.first(), QAbstractItemView::PositionAtCenter);
-                    } else {
+                    if(!this->selectDictionaryEntry(idProp.toLongLong())) {
                         this->ui->addDictionaryId->setText(QString::number(idProp.toLongLong()));
                     }
                     // this->dictionaryModel.
@@ -266,11 +285,7 @@ bool MainWindow::eventFilter(QObject *watched, QEvent *event) {
                     }
                     if(idProp.isValid()) {
                         // qDebug() << idProp.toLongLong();
-                        auto s = this->ui->dictionaryTable->model()->match(this->ui->dictionaryTable->model()->index(0, 0), Qt::DisplayRole, idProp.toLongLong(), 1, Qt::MatchExactly);
-                        if(!s.isEmpty()) {
-                            this->ui->dictionaryTable->selectionModel()->setCurrentIndex(s.first(), QItemSelectionModel::ClearAndSelect | QItemSelectionModel::Rows);
-                            this->ui->dictionaryTable->scrollTo(s.first(), QAbstractItemView::PositionAtCenter);
-                        } else {
+                        if(!this->selectDictionaryEntry(idProp.toLongLong())) {
                             this->ui->addDictionaryId->setText(QString::number(idProp.toLongLong()));
                         }
                         // this->dictionaryModel.
@@ -310,14 +325,42 @@ bool MainWindow::eventFilter(QObject *watched, QEvent *event) {
     return false;
 }
 
+static QVector<qsizetype> makeUtf8ToUtf16Map(const QString &str) {
+    QVector<qsizetype> map;
+    qsizetype utf16Coord = 0;
+    for(QChar qc : str) {
+        char16_t u = qc.unicode();
+        int utf8Len =
+            u < 0x0080 ? 1 : // 1b codepoints (ASCII)
+            u < 0x0800 ? 2 : // 2b codepoints
+            u < 0xD800 ? 3 : // 3b codepoints, partially interrupted by surrogates
+            u < 0xDC00 ? 4 : // high surrogates
+            u < 0xE000 ? 0 : // low surrogates
+            3; // u <= 0xFFFF, rest of 3b codepoints
+        for(int i = 0; i < utf8Len; i++) {
+            map.append(utf16Coord);
+        }
+        utf16Coord++;
+    }
+    // one past end to map utf8 length to utf16 length
+    map.append(utf16Coord);
+    return map;
+}
+
 void MainWindow::onMessageEditorTextChanged() {
+    // QElapsedTimer stopwatch;
+    // stopwatch.start();
+
     const QString text = ui->messageEditor->toPlainText();
     const QByteArray textUtf8 = text.toUtf8();
+    QVector<qsizetype> utf8ToUtf16Map = makeUtf8ToUtf16Map(text);
 
-    // FIXME Fe56 returns results in UTF-8 coordinates but QString is UTF-16...
     Fe56RSymbolized symbolized = fe56_mwis_symbolize(this->core->dictionary.fe56Dictionary, reinterpret_cast<const uint8_t *>(textUtf8.constData()), textUtf8.size());
     Fe56RVec_SymbolizerToken &tokens = symbolized.tokens;
     Fe56RVec_SymbolizerTrace &traces = symbolized.traces;
+
+    // qDebug() << "translate time" << stopwatch.durationElapsed();
+    // stopwatch.start();
 
     this->canSend = symbolized.tokens.size > 0 && !symbolized.has_error;
     this->signalsToSend.clear();
@@ -366,14 +409,16 @@ void MainWindow::onMessageEditorTextChanged() {
         }
         QTextEdit::ExtraSelection sel;
         sel.cursor = QTextCursor(ui->messageEditor->document());
-        sel.cursor.setPosition(trace.span.start);
-        sel.cursor.setPosition(trace.span.end, QTextCursor::KeepAnchor);
+        sel.cursor.setPosition(utf8ToUtf16Map[trace.span.start]);
+        sel.cursor.setPosition(utf8ToUtf16Map[trace.span.end], QTextCursor::KeepAnchor);
         sel.format = fmt;
         selections.append(sel);
     }
     fe56_rsymbolized_free(symbolized);
+    // FIXME the program globally starts to lag with several hundred cursors
     ui->messageEditor->setExtraSelections(selections);
     ui->signalViz->setText(signalVizText);
+    // qDebug() << "format time" << stopwatch.durationElapsed();
 }
 
 void MainWindow::pushToChatBrowser(const DscrTransmissionDbLinked &trns, QTextBrowser *browser) {
@@ -429,7 +474,7 @@ void MainWindow::pushToChatBrowser(const DscrTransmissionDbLinked &trns, QTextBr
         QTextCharFormat plotLinkFormat;
         plotLinkFormat.setProperty(UserTextFormatProperty::OrbPlot, QVariant::fromValue(std::get<DscrSpecialPlot>(trns.specSequences[i].attachment)));
 
-        plotLinkFormat.setForeground(QColor(202, 69, 209));
+        plotLinkFormat.setForeground(QColor(247, 2, 167));
         plotLinkFormat.setFontUnderline(true);
 
         cur.insertBlock(messageBlockFormat);

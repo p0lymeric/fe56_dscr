@@ -32,6 +32,7 @@ private slots:
 private:
     void pushToChatBrowser(const DscrTransmissionDbLinked &trns, QTextBrowser *browser);
     bool eventFilterChatBrowser(QTextBrowser *browser, QEvent *event);
+    bool selectDictionaryEntry(qint64 id);
 
     Ui::MainWindow *ui;
     MainCore *core;

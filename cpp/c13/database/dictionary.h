@@ -5,6 +5,7 @@
 
 #include "fe56.h"
 
+#include <optional>
 #include <QObject>
 #include <QDateTime>
 #include <QElapsedTimer>
@@ -36,15 +37,14 @@ public:
 
     bool init(Database *db, Settings *settings);
 
-    bool upsertDictionary(qint64 signal, const QString &descr, int fmtBefore, int fmtAfter, bool breakOnDouble);
-    bool insertTranslationIfDifferent(qint64 signal, const QDateTime &time, const QString &word);
-
     qsizetype getNumDefinitionsNonArchived() const;
     const Definition &getDefinitionFlat(qsizetype flatIdx) const;
+    const std::optional<Definition> getDefinition(qint64 signal) const;
 
     bool relink(qint64 signal, qint64 signalTo);
     bool rename(qint64 signal, const QString &word);
     bool add(qint64 signal);
+    bool reannotate(qint64 signal, const QString &descr, int fmtBefore, int fmtAfter, bool breakOnDouble);
 
     QString translateSimple(qint64 signal);
     QString translateSimple(QSpan<const qint64> signalz);
@@ -59,6 +59,9 @@ signals:
     void endInsertRows();
 
 private:
+    bool upsertDictionary(qint64 signal, const QString &descr, int fmtBefore, int fmtAfter, bool breakOnDouble);
+    bool insertTranslationIfDifferent(qint64 signal, const QDateTime &time, const QString &word);
+
     Database *db;
     Settings *settings;
 

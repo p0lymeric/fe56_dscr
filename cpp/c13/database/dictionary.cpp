@@ -111,36 +111,18 @@ bool Dictionary::init(Database *db, Settings *settings) {
     return true;
 }
 
-bool Dictionary::upsertDictionary(qint64 signal, const QString &descr, int fmtBefore, int fmtAfter, bool breakOnDouble) {
-    this->prepUpsertDictionary.bindValue(":signal", signal);
-    this->prepUpsertDictionary.bindValue(":descr", descr);
-    this->prepUpsertDictionary.bindValue(":fmt_before", fmtBefore);
-    this->prepUpsertDictionary.bindValue(":fmt_after", fmtAfter);
-    this->prepUpsertDictionary.bindValue(":fmt_break_on_double", breakOnDouble ? 1 : 0);
-    if(!this->prepUpsertDictionary.exec()) {
-        this->prepUpsertDictionary.finish();
-        return false;
-    }
-    return true;
-}
-
-bool Dictionary::insertTranslationIfDifferent(qint64 signal, const QDateTime &time, const QString &word) {
-    this->prepInsertIfDifferentTranslation.bindValue(":signal", signal);
-    this->prepInsertIfDifferentTranslation.bindValue(":mtime", time.toMSecsSinceEpoch());
-    this->prepInsertIfDifferentTranslation.bindValue(":word", word);
-    if(!this->prepInsertIfDifferentTranslation.exec()) {
-        this->prepInsertIfDifferentTranslation.finish();
-        return false;
-    }
-    return true;
-}
-
 qsizetype Dictionary::getNumDefinitionsNonArchived() const {
     return this->entriesFlat.size();
 }
 
 const Definition &Dictionary::getDefinitionFlat(qsizetype flatIdx) const {
     return this->entriesFlat[flatIdx];
+}
+const std::optional<Definition> Dictionary::getDefinition(qint64 signal) const {
+    if(auto it = this->signalToEntriesFlat.constFind(signal); it != this->signalToEntriesFlat.cend()) {
+        return this->entriesFlat[it.value()];
+    }
+    return std::nullopt;
 }
 
 bool Dictionary::relink(qint64 signal, qint64 signalTo) {
@@ -399,6 +381,57 @@ bool Dictionary::add(qint64 signal) {
     return true;
 }
 
+bool Dictionary::reannotate(qint64 signal, const QString &descr, int fmtBefore, int fmtAfter, bool breakOnDouble) {
+    // Lookup
+    auto it = this->signalToEntriesFlat.constFind(signal);
+    if(it == this->signalToEntriesFlat.cend()) {
+        return false;
+    }
+    qsizetype flatIdx = it.value();
+    Definition &def = this->entriesFlat[flatIdx];
+
+    // Debounce
+    // We want to squash consecutive edits on the same entry only
+    if(this->timeSinceLastEdit.isValid() && this->lastEditedSignal == signal) {
+    } else {
+        this->timeSinceLastEdit.invalidate();
+    }
+
+    // SQL
+    if(!this->db->oneshotStatement(R"(
+        UPDATE user_dictionary
+        SET descr=:descr, fmt_before=:fmt_before, fmt_after=:fmt_after, fmt_break_on_double=:fmt_break_on_double
+        WHERE signal=:signal
+    )", {
+        {":signal", signal},
+        {":descr", descr},
+        {":fmt_before", fmtBefore},
+        {":fmt_after", fmtAfter},
+        {":fmt_break_on_double", breakOnDouble ? 1 : 0},
+    }).has_value()) {
+        return false;
+    }
+
+    // Flat
+    def.desc = descr;
+    def.formatBefore = static_cast<Spacing>(fmtBefore);
+    def.formatAfter = static_cast<Spacing>(fmtAfter);
+    def.breakOnDouble = breakOnDouble;
+
+    // Fe56
+    fe56_dictionary_remove(this->fe56Dictionary, signal);
+    const QByteArray wordUtf8 = def.word.toUtf8();
+    Fe56Formatting formatting {
+        static_cast<Fe56SpacingKind>(def.formatBefore),
+        static_cast<Fe56SpacingKind>(def.formatAfter),
+        def.breakOnDouble,
+    };
+    fe56_dictionary_add(this->fe56Dictionary, signal, reinterpret_cast<const uint8_t*>(wordUtf8.data()), wordUtf8.size(), formatting);
+
+    // emit this->dataChanged(flatIdx, flatIdx);
+    return true;
+}
+
 QString Dictionary::translateSimple(qint64 signal) {
     return this->translateSimple(QSpan<const qint64>(&signal, 1));
 }
@@ -410,4 +443,28 @@ QString Dictionary::translateSimple(QSpan<const qint64> signalz) {
     QString string = QString::fromUtf8(desymUtf8);
     fe56_rdesymbolized_free(desym);
     return string;
+}
+
+bool Dictionary::upsertDictionary(qint64 signal, const QString &descr, int fmtBefore, int fmtAfter, bool breakOnDouble) {
+    this->prepUpsertDictionary.bindValue(":signal", signal);
+    this->prepUpsertDictionary.bindValue(":descr", descr);
+    this->prepUpsertDictionary.bindValue(":fmt_before", fmtBefore);
+    this->prepUpsertDictionary.bindValue(":fmt_after", fmtAfter);
+    this->prepUpsertDictionary.bindValue(":fmt_break_on_double", breakOnDouble ? 1 : 0);
+    if(!this->prepUpsertDictionary.exec()) {
+        this->prepUpsertDictionary.finish();
+        return false;
+    }
+    return true;
+}
+
+bool Dictionary::insertTranslationIfDifferent(qint64 signal, const QDateTime &time, const QString &word) {
+    this->prepInsertIfDifferentTranslation.bindValue(":signal", signal);
+    this->prepInsertIfDifferentTranslation.bindValue(":mtime", time.toMSecsSinceEpoch());
+    this->prepInsertIfDifferentTranslation.bindValue(":word", word);
+    if(!this->prepInsertIfDifferentTranslation.exec()) {
+        this->prepInsertIfDifferentTranslation.finish();
+        return false;
+    }
+    return true;
 }
