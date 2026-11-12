@@ -4,6 +4,7 @@
 #include "models/chatmodel.h"
 #include "models/dictionarytablemodel.h"
 #include "glorpviewer.h"
+#include "mamusicplayer.h"
 
 #include <QLabel>
 #include <QMainWindow>
@@ -40,6 +41,7 @@ private:
     DictionaryTableModel dictionaryModel;
     QLabel instantMouseoverToolTip;
     GlOrPViewer instantGlorp;
+    MaMusicPlayer myMusicPlayer{32};
     // TODO temp for reacting to dictionary updates
     ChatModel chatModelUnenc;
     ChatModel chatModelAll;

@@ -51,12 +51,16 @@ struct DscrSpecialMusic {
         X = -11,
         Begin = -14,
         End = -15,
-        Before = -122,
+        BeforeSym = -122,
         Music = -577,
         NoteSym = -605003,
     };
 
-    static constexpr float HE6SECOND_PER_SECOND = 0.8069224;
+    static constexpr qsizetype RECURSION_LIMIT = 50;
+    static constexpr float SECOND_PER_HE6SECOND = 0.8069224;
+
+    struct Item;
+
     struct Note {
         // Time units are in He-6 seconds
         float startTime;
@@ -64,22 +68,21 @@ struct DscrSpecialMusic {
         float freq;
     };
 
-    QVector<Note> pianoRoll;
+    struct Sequence {
+        std::shared_ptr<const QVector<Item>> group;
+    };
 
-    // struct Player;
-    // struct PianoRoll {
-    //     QVector<Note> roll;
-    //     Player makePlayer();
-    // };
-    // struct Player {
-    //     PianoRoll pianoRoll;
-    //     qsizetype cursor;
+    // Barrier to inform a player that it should finish playing the
+    // current notes before proceeding to the next item
+    struct Before {};
 
-    //     std::optional<Note> next();
-    // };
+    struct Item {
+        std::variant<Note, Sequence, Before> item;
+    };
+
+    Sequence music;
 
     static std::optional<DscrSpecialMusic> fromSymbols(QSpan<const qint64> symbols, bool endMustTerminate, qsizetype *endWritebackNullable);
-
 };
 
 struct DscrSpecialPlot {
@@ -105,13 +108,12 @@ struct DscrSpecialPlot {
     QVector<Orb> orbs;
 
     static std::optional<DscrSpecialPlot> fromSymbols(QSpan<const qint64> symbols, bool endMustTerminate, qsizetype *endWritebackNullable);
-    static QVector<DscrSpecialPlot> findAll(QSpan<const qint64> symbols);
 };
 
 struct DscrSpecialSequence {
     qsizetype start;
     qsizetype end;
-    std::variant<DscrSpecialEncrypted, DscrSpecialPlot> attachment;
+    std::variant<DscrSpecialEncrypted, DscrSpecialPlot, DscrSpecialMusic> attachment;
 
     static QVector<DscrSpecialSequence> findAll(QSpan<const qint64> symbols);
 };

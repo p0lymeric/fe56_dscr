@@ -19,6 +19,7 @@ enum UserTextFormatProperty {
     TimeQDateTime = QTextFormat::Property::UserProperty,
     SignalIdqint64,
     OrbPlot,
+    Music,
 };
 
 bool MainWindow::selectDictionaryEntry(qint64 id) {
@@ -165,6 +166,7 @@ bool MainWindow::eventFilterChatBrowser(QTextBrowser *browser, QEvent *event) {
                 QVariant timeProp = format.property(UserTextFormatProperty::TimeQDateTime);
                 QVariant idProp = format.property(UserTextFormatProperty::SignalIdqint64);
                 QVariant plotProp = format.property(UserTextFormatProperty::OrbPlot);
+                QVariant musicProp = format.property(UserTextFormatProperty::Music);
                 if(timeProp.isValid()) {
                     // qDebug() << timeProp.toDateTime();
                     this->instantMouseoverToolTip.setText(timeProp.toDateTime().toString("yyyy-MM-dd HH:mm:ss t"));
@@ -184,6 +186,8 @@ bool MainWindow::eventFilterChatBrowser(QTextBrowser *browser, QEvent *event) {
                     this->instantGlorp.update();
                     this->instantGlorp.move(eventMouse->globalPosition().toPoint() + QPoint(15, 15));
                     this->instantGlorp.show();
+                } else if(musicProp.isValid()) {
+                    browser->viewport()->setCursor(Qt::PointingHandCursor);
                 } else {
                     // FIXME this is slightly incorrect if the cursor were to cross between showing instantMouseoverToolTip and instantGlorp
                     // we would not hide the other in that case
@@ -213,6 +217,7 @@ bool MainWindow::eventFilterChatBrowser(QTextBrowser *browser, QEvent *event) {
                 QTextCharFormat format = cur.charFormat();
                 QVariant idProp = format.property(UserTextFormatProperty::SignalIdqint64);
                 QVariant plotProp = format.property(UserTextFormatProperty::OrbPlot);
+                QVariant musicProp = format.property(UserTextFormatProperty::Music);
                 if(idProp.isValid()) {
                     // qDebug() << idProp.toLongLong();
                     if(!this->selectDictionaryEntry(idProp.toLongLong())) {
@@ -222,6 +227,9 @@ bool MainWindow::eventFilterChatBrowser(QTextBrowser *browser, QEvent *event) {
                 } else if(plotProp.isValid()) {
                     this->ui->glOrPViewer->load53(plotProp.value<DscrSpecialPlot>());
                     this->ui->glOrPViewer->update();
+                } else if(musicProp.isValid()) {
+                    this->myMusicPlayer.load(musicProp.value<DscrSpecialMusic>());
+                    this->myMusicPlayer.play();
                 }
             }
             break;
@@ -468,17 +476,26 @@ void MainWindow::pushToChatBrowser(const DscrTransmissionDbLinked &trns, QTextBr
     cur.insertText(QString::number(trns.msg.from, 8).rightJustified(4, '0'), callsignFormat);
 
     for(qsizetype i = 0; i < trns.specSequences.size(); i++) {
-        if(!std::holds_alternative<DscrSpecialPlot>(trns.specSequences[i].attachment)) {
-            continue;
+        if(std::holds_alternative<DscrSpecialPlot>(trns.specSequences[i].attachment)) {
+            QTextCharFormat linkFormat;
+            linkFormat.setProperty(UserTextFormatProperty::OrbPlot, QVariant::fromValue(std::get<DscrSpecialPlot>(trns.specSequences[i].attachment)));
+
+            linkFormat.setForeground(QColor(247, 2, 167));
+            linkFormat.setFontUnderline(true);
+
+            cur.insertBlock(messageBlockFormat);
+            cur.insertText(this->core->dictionary.translateSimple({-53, -163}), linkFormat); // PLOT SEE
+        } else if(std::holds_alternative<DscrSpecialMusic>(trns.specSequences[i].attachment)) {
+            QTextCharFormat linkFormat;
+            linkFormat.setProperty(UserTextFormatProperty::Music, QVariant::fromValue(std::get<DscrSpecialMusic>(trns.specSequences[i].attachment)));
+
+            linkFormat.setForeground(QColor(247, 2, 167));
+            linkFormat.setFontUnderline(true);
+
+            cur.insertBlock(messageBlockFormat);
+            cur.insertText(this->core->dictionary.translateSimple({-577, -332}), linkFormat); // music hear
         }
-        QTextCharFormat plotLinkFormat;
-        plotLinkFormat.setProperty(UserTextFormatProperty::OrbPlot, QVariant::fromValue(std::get<DscrSpecialPlot>(trns.specSequences[i].attachment)));
 
-        plotLinkFormat.setForeground(QColor(247, 2, 167));
-        plotLinkFormat.setFontUnderline(true);
-
-        cur.insertBlock(messageBlockFormat);
-        cur.insertText(this->core->dictionary.translateSimple({-53, -163}), plotLinkFormat); // PLOT SEE
     }
 
     cur.insertBlock(messageBlockFormat);

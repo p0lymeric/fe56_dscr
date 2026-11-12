@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.19)
-project(c13 LANGUAGES CXX)
+project(c13 LANGUAGES C CXX)
 
 find_package(Qt6 6.5 REQUIRED COMPONENTS Core Widgets WebSockets Sql OpenGLWidgets)
 
@@ -31,9 +31,9 @@ qt_add_executable(c13
     connectionpill.h connectionpill.cpp connectionpill.ui
     dictionarylongeditor.h dictionarylongeditor.cpp dictionarylongeditor.ui
 
-    glorpviewer.h glorpviewer.cpp
-
     third_party/miniaudio/miniaudio.c
+    glorpviewer.h glorpviewer.cpp
+    mamusicplayer.h mamusicplayer.cpp
 
 )
 

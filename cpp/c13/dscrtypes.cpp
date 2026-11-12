@@ -327,56 +327,172 @@ static std::optional<DscrSpecialPlot::Orb> consumeOrb(QSpan<const qint64> symbol
     return orb;
 }
 
-static std::optional<QVector<DscrSpecialMusic::Note>> consumeChord(
+static std::optional<DscrSpecialMusic::Note> consumeNote(
+    QSpan<const qint64> symbols,
+    qsizetype &cur
+) {
+    qsizetype cur2 = cur;
+    DscrSpecialMusic::Note note;
+
+    if(cur2 >= symbols.size() || symbols[cur2] != DscrSpecialMusic::Symbol::NoteSym) {
+        return std::nullopt;
+    }
+    cur2++;
+
+    auto maybeStartTime = consumeUnsignedFloat(symbols, cur2);
+    if(consumeSep(symbols, cur2)) {
+        note.startTime = maybeStartTime.value_or(0);
+    } else {
+        return std::nullopt;
+    }
+    auto maybeNoteDuration = consumeUnsignedFloat(symbols, cur2);
+    if(consumeSep(symbols, cur2)) {
+        note.noteDuration = maybeNoteDuration.value_or(0);
+    } else {
+        return std::nullopt;
+    }
+    auto maybeFreq = consumeUnsignedFloat(symbols, cur2);
+    note.freq = maybeFreq.value_or(0);
+
+    cur = cur2;
+    return note;
+}
+
+static std::optional<DscrSpecialMusic::Sequence> consumeGroup(
     QSpan<const qint64> symbols,
     qsizetype &cur,
-    QHash<qint64, QVector<DscrSpecialMusic::Note>> &rolls
+    QHash<qint64, DscrSpecialMusic::Sequence> &vars,
+    qsizetype recursionDepth
+);
+
+static std::optional<qint64> consumeVar(
+    QSpan<const qint64> symbols,
+    qsizetype &cur
 ) {
-    // qsizetype cur2 = cur;
+    qsizetype cur2 = cur;
 
-    // cur = cur2;
-    // return seq;
+    if(cur2 >= symbols.size() || symbols[cur2] != DscrSpecialMusic::Symbol::X) {
+        return std::nullopt;
+    }
+    cur2++;
 
-    // TODO
+    if(cur2 >= symbols.size() || symbols[cur2] < 0) {
+        return std::nullopt;
+    } else {
+        cur = cur2 + 1;
+        return symbols[cur2];
+    }
+}
+
+static std::optional<DscrSpecialMusic::Sequence> consumeVarDeclOrVarRefAsSequence(
+    QSpan<const qint64> symbols,
+    qsizetype &cur,
+    QHash<qint64, DscrSpecialMusic::Sequence> &vars,
+    qsizetype recursionDepth
+) {
+    qsizetype cur2 = cur;
+
+    if(auto var = consumeVar(symbols, cur2); var.has_value()) {
+        // mildly context-sensitive
+        // if a VAR is already declared, don't parse a following group if it exists
+        if(auto it = vars.constFind(*var); it != vars.constEnd()) {
+            cur = cur2;
+            return it.value();
+        } else if(auto group = consumeGroup(symbols, cur2, vars, recursionDepth); group.has_value()) {
+            vars.insert(*var, *group);
+            cur = cur2;
+            return group;
+        }
+    }
 
     return std::nullopt;
 }
 
-static std::optional<QVector<DscrSpecialMusic::Note>> consumeSequence(
+static std::optional<DscrSpecialMusic::Item> consumeItem(
     QSpan<const qint64> symbols,
     qsizetype &cur,
-    QHash<qint64, QVector<DscrSpecialMusic::Note>> &rolls
+    QHash<qint64, DscrSpecialMusic::Sequence> &vars,
+    qsizetype recursionDepth
 ) {
     qsizetype cur2 = cur;
+    DscrSpecialMusic::Item item;
 
-    auto seq = consumeChord(symbols, cur2, rolls);
-    if(!seq.has_value()) {
+    if(auto note = consumeNote(symbols, cur2); note.has_value()) {
+        item.item = *note;
+    } else if (auto seq = consumeVarDeclOrVarRefAsSequence(symbols, cur2, vars, recursionDepth); seq.has_value()) {
+        item.item = *seq;
+    } else if (auto group = consumeGroup(symbols, cur2, vars, recursionDepth); group.has_value()) {
+        item.item = *group;
+    } else {
         return std::nullopt;
     }
 
-    // while(cur2 < symbols.size() && symbols[cur2] == DscrSpecialMusic::Symbol::NoteSym) {
-    // TODO
-    // }
+    if(cur2 < symbols.size() && symbols[cur2] == DscrSpecialMusic::Symbol::Sep) {
+        cur2++;
+    }
 
     cur = cur2;
-    return seq;
+    return item;
 }
 
-static std::optional<QVector<DscrSpecialMusic::Note>> consumeGroup(
+static QVector<DscrSpecialMusic::Item> consumeChord(
     QSpan<const qint64> symbols,
     qsizetype &cur,
-    QHash<qint64, QVector<DscrSpecialMusic::Note>> &rolls
+    QHash<qint64, DscrSpecialMusic::Sequence> &vars,
+    qsizetype recursionDepth
 ) {
+    qsizetype cur2 = cur;
+    QVector<DscrSpecialMusic::Item> items;
+
+    while(true) {
+        if(auto item = consumeItem(symbols, cur2, vars, recursionDepth); item.has_value()) {
+            items.append(*item);
+        } else {
+            break;
+        }
+    }
+
+    cur = cur2;
+    return items;
+}
+
+static DscrSpecialMusic::Sequence consumeSequence(
+    QSpan<const qint64> symbols,
+    qsizetype &cur,
+    QHash<qint64, DscrSpecialMusic::Sequence> &vars,
+    qsizetype recursionDepth
+) {
+    qsizetype cur2 = cur;
+    QVector<DscrSpecialMusic::Item> items;
+
+    items += consumeChord(symbols, cur2, vars, recursionDepth);
+
+    while(cur2 < symbols.size() && symbols[cur2] == DscrSpecialMusic::Symbol::BeforeSym) {
+        cur2++;
+        items += { DscrSpecialMusic::Before{} };
+        items += consumeChord(symbols, cur2, vars, recursionDepth);
+    }
+
+    cur = cur2;
+    return { std::make_shared<const QVector<DscrSpecialMusic::Item>>(items) };
+}
+
+static std::optional<DscrSpecialMusic::Sequence> consumeGroup(
+    QSpan<const qint64> symbols,
+    qsizetype &cur,
+    QHash<qint64, DscrSpecialMusic::Sequence> &vars,
+    qsizetype recursionDepth
+) {
+    if(recursionDepth >= DscrSpecialMusic::RECURSION_LIMIT) {
+        return std::nullopt;
+    }
     qsizetype cur2 = cur;
     if(cur2 >= symbols.size() || symbols[cur2] != DscrSpecialMusic::Symbol::Begin) {
         return std::nullopt;
     }
     cur2++;
 
-    auto seq = consumeSequence(symbols, cur2, rolls);
-    if(!seq.has_value()) {
-        return std::nullopt;
-    }
+    auto seq = consumeSequence(symbols, cur2, vars, recursionDepth + 1);
 
     if(cur2 >= symbols.size() || symbols[cur2] != DscrSpecialMusic::Symbol::End) {
         return std::nullopt;
@@ -421,16 +537,16 @@ std::optional<DscrSpecialMusic> DscrSpecialMusic::fromSymbols(QSpan<const qint64
         return std::nullopt;
     }
 
-    QHash<qint64, QVector<DscrSpecialMusic::Note>> rolls;
+    QHash<qint64, DscrSpecialMusic::Sequence> vars;
     qsizetype cur = 1;
-    if(auto pianoRoll = consumeGroup(symbols, cur, rolls); pianoRoll.has_value()) {
+    if(auto music = consumeGroup(symbols, cur, vars, 0)) {
         if(endMustTerminate && cur != symbols.size()) {
             return std::nullopt;
         }
         if(endWritebackNullable != nullptr) {
             *endWritebackNullable = cur;
         }
-        return DscrSpecialMusic { *pianoRoll };
+        return DscrSpecialMusic { *music };
     }
 
     return std::nullopt;
@@ -491,23 +607,6 @@ std::optional<DscrSpecialPlot> DscrSpecialPlot::fromSymbols(QSpan<const qint64> 
     return DscrSpecialPlot { orbs };
 }
 
-QVector<DscrSpecialPlot> DscrSpecialPlot::findAll(QSpan<const qint64> symbols) {
-    // tricksy, tricksy hobbitses...
-    QVector<DscrSpecialPlot> orbses;
-
-    for(qsizetype i = 0; i < symbols.size(); i++) {
-        qsizetype end = 0;
-        if(auto orbs = DscrSpecialPlot::fromSymbols(symbols.sliced(i), false, &end); orbs.has_value()) {
-            orbses.append(*orbs);
-            i += end;
-        } else {
-            i++;
-        }
-    }
-
-    return orbses;
-}
-
 QVector<DscrSpecialSequence> DscrSpecialSequence::findAll(QSpan<const qint64> symbols) {
     QVector<DscrSpecialSequence> specs;
 
@@ -522,6 +621,9 @@ QVector<DscrSpecialSequence> DscrSpecialSequence::findAll(QSpan<const qint64> sy
         qsizetype end = 0;
         if(auto orbs = DscrSpecialPlot::fromSymbols(symbols.sliced(i), false, &end); orbs.has_value()) {
             specs.append(DscrSpecialSequence { i, i + end, std::move(*orbs) });
+            i += end;
+        } else if(auto music = DscrSpecialMusic::fromSymbols(symbols.sliced(i), false, &end); music.has_value()) {
+            specs.append(DscrSpecialSequence { i, i + end, std::move(*music) });
             i += end;
         } else {
             i++;
