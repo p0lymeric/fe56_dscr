@@ -91,8 +91,9 @@ bool MaMusicPlayer::load(const DscrSpecialMusic &music) {
 
 void MaMusicPlayer::play() {
     // FIXME lazy and s****y implementation
-    // proper implementation should probably maintain a fixed size voice bank
+    // - proper implementation should probably maintain a fixed size voice bank
     // and schedule notes as voices become available
+    // - proper implementation should implement an envelope to eliminate clicking
 
     ma_result result;
 
@@ -112,23 +113,27 @@ void MaMusicPlayer::play() {
     this->waveforms.reserve(this->song.size());
     this->sounds.reserve(this->song.size());
 
-    ma_uint64 engineT0 = ma_engine_get_time_in_milliseconds(&*this->engine);
-    for(auto &note : this->song) {
-        ma_waveform_config config = ma_waveform_config_init(
-            ma_format_f32,
-            ma_engine_get_channels(&*this->engine),
-            ma_engine_get_sample_rate(&*this->engine),
-            ma_waveform_type_triangle,
-            1.0,
-            note.freqHz
-        );
+    ma_uint64 engineP0 = ma_engine_get_time_in_pcm_frames(&*this->engine);
+    ma_uint64 engineSR = ma_engine_get_sample_rate(&*this->engine);
+    ma_waveform_config waveformConfig = ma_waveform_config_init(
+        ma_format_f32,
+        ma_engine_get_channels(&*this->engine),
+        engineSR,
+        ma_waveform_type_triangle,
+        0.8,
+        440.0
+    );
 
+    for(auto &note : this->song) {
+        waveformConfig.frequency = note.freqHz;
         ma_waveform &waveform = this->waveforms.emplace_back();
-        result = ma_waveform_init(&config, &waveform);
+        result = ma_waveform_init(&waveformConfig, &waveform);
         if (result != MA_SUCCESS) {
             this->waveforms.pop_back();
             return;
         }
+        // translate triangle wave to start at zero to mitigate start clicks
+        ma_waveform_seek_to_pcm_frame(&waveform, engineSR / (4.0 * note.freqHz));
 
         ma_sound &sound = this->sounds.emplace_back();
         result = ma_sound_init_from_data_source(&*engine, &waveform, 0, nullptr, &sound);
@@ -136,8 +141,8 @@ void MaMusicPlayer::play() {
             this->sounds.pop_back();
             return;
         }
-        ma_sound_set_start_time_in_milliseconds(&sound, engineT0 + note.startSec * 1000);
-        ma_sound_set_stop_time_with_fade_in_milliseconds(&sound, engineT0 + (note.startSec + note.durationSec) * 1000, 5);
+        ma_sound_set_start_time_in_pcm_frames(&sound, engineP0 + note.startSec * engineSR);
+        ma_sound_set_stop_time_with_fade_in_pcm_frames(&sound, engineP0 + (note.startSec + note.durationSec) * engineSR, 5.0 * engineSR / 1000.0);
     }
 
     for(auto &sound : this->sounds) {
