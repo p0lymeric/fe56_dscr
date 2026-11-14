@@ -1,5 +1,6 @@
 #include "database/wsmessagelog.h"
-#include "dscrtypes.h"
+#include "protocol/dscrtypes.h"
+
 #include <limits>
 
 WsMessageLog::WsMessageLog(QObject *parent) : QObject{parent} {

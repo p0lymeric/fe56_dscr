@@ -2,7 +2,7 @@
 
 #include "database/database.h"
 #include "database/settings.h"
-#include "dscrtypes.h"
+#include "protocol/dscrtypes.h"
 
 #include <optional>
 #include <limits>

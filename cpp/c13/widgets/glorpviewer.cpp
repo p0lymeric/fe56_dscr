@@ -1,5 +1,5 @@
-#include "glorpviewer.h"
-#include "dscrtypes.h"
+#include "widgets/glorpviewer.h"
+#include "protocol/dscrtypes.h"
 
 #include <array>
 #include <algorithm>

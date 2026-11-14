@@ -1,5 +1,4 @@
 #include "database/dictionary.h"
-#include "dictionary.h"
 #include "fe56.h"
 
 Dictionary::Dictionary(QObject *parent) : QObject{parent} {

@@ -1,5 +1,5 @@
 #include "database/transmissionprocessor.h"
-#include "dscrtypes.h"
+#include "protocol/dscrtypes.h"
 
 #include <algorithm>
 #include <optional>

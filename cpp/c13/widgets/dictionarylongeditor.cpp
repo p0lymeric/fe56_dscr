@@ -1,4 +1,4 @@
-#include "dictionarylongeditor.h"
+#include "widgets/dictionarylongeditor.h"
 #include "ui_dictionarylongeditor.h"
 
 DictionaryLongEditor::DictionaryLongEditor(QWidget *parent)

@@ -5,7 +5,7 @@
 #include "database/dictionary.h"
 #include "database/transmissionprocessor.h"
 #include "database/wsmessagelog.h"
-#include "dscrclient.h"
+#include "network/dscrclient.h"
 
 #include <QObject>
 

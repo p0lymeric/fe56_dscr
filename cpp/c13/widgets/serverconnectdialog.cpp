@@ -1,4 +1,4 @@
-#include "serverconnectdialog.h"
+#include "widgets/serverconnectdialog.h"
 #include "ui_serverconnectdialog.h"
 
 ServerConnectDialog::ServerConnectDialog(QWidget *parent) :

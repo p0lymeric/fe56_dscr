@@ -1,4 +1,4 @@
-#include "connectionpill.h"
+#include "widgets/connectionpill.h"
 #include "ui_connectionpill.h"
 
 ConnectionPill::ConnectionPill(QWidget *parent)

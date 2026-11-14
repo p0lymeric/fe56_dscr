@@ -1,6 +1,6 @@
 #include <cmath>
 #include <optional>
-#include "dscrtypes.h"
+#include "protocol/dscrtypes.h"
 
 QString DscrMessage::encodeWsMessage() {
     QString message(this->signifier);

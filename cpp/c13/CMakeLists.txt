@@ -12,10 +12,13 @@ qt_add_executable(c13
     WIN32 MACOSX_BUNDLE
     main.cpp
     maincore.h maincore.cpp
+    mainwindow.h mainwindow.cpp mainwindow.ui
+
     assets/assets.qrc
 
-    dscrclient.h dscrclient.cpp
-    dscrtypes.h dscrtypes.cpp
+    network/dscrclient.h network/dscrclient.cpp
+
+    protocol/dscrtypes.h protocol/dscrtypes.cpp
 
     database/database.h database/database.cpp
     database/dictionary.h database/dictionary.cpp
@@ -26,14 +29,13 @@ qt_add_executable(c13
     models/dictionarytablemodel.h models/dictionarytablemodel.cpp
     models/chatmodel.h models/chatmodel.cpp
 
-    mainwindow.h mainwindow.cpp mainwindow.ui
-    serverconnectdialog.h serverconnectdialog.cpp serverconnectdialog.ui
-    connectionpill.h connectionpill.cpp connectionpill.ui
-    dictionarylongeditor.h dictionarylongeditor.cpp dictionarylongeditor.ui
+    widgets/serverconnectdialog.h widgets/serverconnectdialog.cpp widgets/serverconnectdialog.ui
+    widgets/connectionpill.h widgets/connectionpill.cpp widgets/connectionpill.ui
+    widgets/dictionarylongeditor.h widgets/dictionarylongeditor.cpp widgets/dictionarylongeditor.ui
+    widgets/glorpviewer.h widgets/glorpviewer.cpp
+    widgets/mamusicplayer.h widgets/mamusicplayer.cpp
 
     third_party/miniaudio/miniaudio.c
-    glorpviewer.h glorpviewer.cpp
-    mamusicplayer.h mamusicplayer.cpp
 
 )
 

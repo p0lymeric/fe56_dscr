@@ -3,8 +3,8 @@
 #include "maincore.h"
 #include "models/chatmodel.h"
 #include "models/dictionarytablemodel.h"
-#include "glorpviewer.h"
-#include "mamusicplayer.h"
+#include "widgets/glorpviewer.h"
+#include "widgets/mamusicplayer.h"
 
 #include <QLabel>
 #include <QMainWindow>

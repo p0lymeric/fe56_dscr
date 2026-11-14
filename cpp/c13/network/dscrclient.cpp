@@ -1,5 +1,5 @@
-#include "dscrclient.h"
-#include "dscrtypes.h"
+#include "network/dscrclient.h"
+#include "protocol/dscrtypes.h"
 
 #include <QDebug>
 

@@ -1,4 +1,4 @@
-#include "mamusicplayer.h"
+#include "widgets/mamusicplayer.h"
 
 MaMusicPlayer::MaMusicPlayer(size_t polyphony, QObject *parent) : QObject{parent}, polyphony(polyphony) {
     ma_result result;

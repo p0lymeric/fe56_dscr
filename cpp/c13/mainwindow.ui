@@ -158,19 +158,19 @@
   <customwidget>
    <class>GlOrPViewer</class>
    <extends>QWidget</extends>
-   <header>glorpviewer.h</header>
+   <header>widgets/glorpviewer.h</header>
    <container>1</container>
   </customwidget>
   <customwidget>
    <class>ConnectionPill</class>
    <extends>QWidget</extends>
-   <header>connectionpill.h</header>
+   <header>widgets/connectionpill.h</header>
    <container>1</container>
   </customwidget>
   <customwidget>
    <class>DictionaryLongEditor</class>
    <extends>QWidget</extends>
-   <header>dictionarylongeditor.h</header>
+   <header>widgets/dictionarylongeditor.h</header>
    <container>1</container>
   </customwidget>
  </customwidgets>

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "dscrtypes.h"
+#include "protocol/dscrtypes.h"
 
 #include "miniaudio.h"
 
