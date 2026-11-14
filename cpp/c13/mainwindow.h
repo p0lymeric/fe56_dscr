@@ -48,4 +48,5 @@ private:
     // TODO loose message editor state
     QVector<qint64> signalsToSend;
     bool canSend;
+    QVector<DscrSpecialSequence> messageEditorAttachments;
 };

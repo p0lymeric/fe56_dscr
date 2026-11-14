@@ -66,6 +66,9 @@ MainWindow::MainWindow(MainCore *core, QWidget *parent) :
     this->ui->chatBrowser2->viewport()->setMouseTracking(true);
     this->ui->chatBrowser2->viewport()->installEventFilter(this);
 
+    this->ui->inspector->viewport()->setMouseTracking(true);
+    this->ui->inspector->viewport()->installEventFilter(this);
+
     this->ui->messageEditor->viewport()->setMouseTracking(true);
     this->ui->messageEditor->viewport()->installEventFilter(this);
     this->ui->messageEditor->installEventFilter(this);
@@ -250,6 +253,8 @@ bool MainWindow::eventFilter(QObject *watched, QEvent *event) {
         this->eventFilterChatBrowser(this->ui->chatBrowser, event);
     } else if(watched == this->ui->chatBrowser2->viewport()) {
         this->eventFilterChatBrowser(this->ui->chatBrowser2, event);
+    } else if(watched == this->ui->inspector->viewport()) {
+        this->eventFilterChatBrowser(this->ui->inspector, event);
     } else if(watched == this->ui->messageEditor->viewport()) {
         switch(event->type()) {
             case QEvent::MouseMove: {
@@ -375,6 +380,36 @@ void MainWindow::onMessageEditorTextChanged() {
     for(uintptr_t i = 0; i < tokens.size; i++) {
         auto token = tokens.ptr[i];
         signalsToSend.append(token.id);
+    }
+
+    if(this->canSend) {
+        this->messageEditorAttachments = DscrSpecialSequence::findAll(signalsToSend);
+    } else {
+        this->messageEditorAttachments.clear();
+    }
+    this->ui->inspector->clear();
+    QTextCursor cur(ui->inspector->document());
+    QTextBlockFormat messageBlockFormat;
+    for(qsizetype i = 0; i < this->messageEditorAttachments.size(); i++) {
+        if(std::holds_alternative<DscrSpecialPlot>(this->messageEditorAttachments[i].attachment)) {
+            QTextCharFormat linkFormat;
+            linkFormat.setProperty(UserTextFormatProperty::OrbPlot, QVariant::fromValue(std::get<DscrSpecialPlot>(this->messageEditorAttachments[i].attachment)));
+
+            linkFormat.setForeground(QColor(247, 2, 167));
+            linkFormat.setFontUnderline(true);
+
+            cur.insertBlock(messageBlockFormat);
+            cur.insertText(this->core->dictionary.translateSimple({-53, -163}), linkFormat); // PLOT SEE
+        } else if(std::holds_alternative<DscrSpecialMusic>(this->messageEditorAttachments[i].attachment)) {
+            QTextCharFormat linkFormat;
+            linkFormat.setProperty(UserTextFormatProperty::Music, QVariant::fromValue(std::get<DscrSpecialMusic>(this->messageEditorAttachments[i].attachment)));
+
+            linkFormat.setForeground(QColor(247, 2, 167));
+            linkFormat.setFontUnderline(true);
+
+            cur.insertBlock(messageBlockFormat);
+            cur.insertText(this->core->dictionary.translateSimple({-577, -332}), linkFormat); // music hear
+        }
     }
 
     QString signalVizText;
