@@ -22,23 +22,48 @@ static GLubyte lerp(GLubyte start, GLubyte end, float mix) {
     return std::lround(float(start) * (1.0f - mix) + float(end) * mix);
 }
 
-// Based off DSVE's colour table
+// 0-64 decode based off DSVE's colour table
 // https://github.com/akqqa/deep-space-visual-editor/blob/69f12bc6033c01d975981e40cbeec890feeee853/src/js/editor.js#L46-L65
+// 65-128 decode based off conversation with 1574
+// 224  1574
+// COLOUR 65 ETC 128 ; ;
+// TE-PERSON EYE $ red , green , blue SENSE CAN ! ; ;
+// COLOUR word-order ( red , green , blue ) ; ;
+// COLOUR ( X = 0 XOR X > 0 AND X < 1 XOR X = 1 ) ; ;
+// SMALL ( X0 ) => X0 ( NONE . ) TABL 0.5, 0 ; ;
+// 1, 1 ; ;
+// 0.2, 0 ; ;
+// 4.3, 4 ; ;
+// 8.9, 8 ; ;
+// COLOUR ( X0 ) TABL ; ;
+// IF X0 > 64 AND X0 < 129 => COLOUR ( SMALL ( X0 ; 16 / 4 rem[div] ) 3 / , SMALL ( X0 ; 4 / 4 rem[div] ) 3 / , X0 ; 4 rem[div] 3 / )
+// and a correction to the unpacking description
+// COLOUR ( X0 ) TABL ; ;
+// IF X0 > 64 AND X0 < 129 => COLOUR ( SMALL ( X0 ; 65 - 16 /) 4 rem[div] 3 / , SMALL ( X0 ; 65 - 4 /) 4 rem[div] 3 / , X0 ; 65 - 4 rem[div] 3 / )
 static std::array<GLubyte, 3> getIndexedColour(int index) {
     const GLubyte R[] = { 0xFF, 0xBB, 0x00, 0x00, 0x4D, 0xFB, 0xFF, 0x48, 0x63, 0xFF };
     const GLubyte G[] = { 0x58, 0xFF, 0xCD, 0x84, 0x00, 0x39, 0x0F, 0x48, 0x63, 0xFF };
     const GLubyte B[] = { 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0xD7, 0x48, 0x63, 0xFF };
 
-    float scaledIdx = float(std::clamp(index, 0, 64)) / 64.0f * (sizeof(R) - 1);
-    int loIdx = std::floor(scaledIdx);
-    int hiIdx = std::ceil(scaledIdx);
-    float mix = scaledIdx - loIdx;
+    if(index >= 65 && index <= 128) {
+        // Unpack modulo 4 and scale to [0.0, 1.0]: c((x0 - 65) / 16 % 4 / 3, (x0 - 65) / 4 % 4 / 3, (x0 - 65) % 4 / 3)
+        // Scale to GLubyte range: 255 / 3 == 85
+        int x0_m65 = index - 65;
+        GLubyte r = ((x0_m65 >> 4) & 0b11) * 85;
+        GLubyte g = ((x0_m65 >> 2) & 0b11) * 85;
+        GLubyte b = ((x0_m65 >> 0) & 0b11) * 85;
+        return { r, g, b };
+    } else {
+        float scaledIdx = float(std::clamp(index, 0, 64)) / 64.0f * (sizeof(R) - 1);
+        int loIdx = std::floor(scaledIdx);
+        int hiIdx = std::ceil(scaledIdx);
+        float mix = scaledIdx - loIdx;
 
-    GLubyte r = lerp(R[loIdx], R[hiIdx], mix);
-    GLubyte g = lerp(G[loIdx], G[hiIdx], mix);
-    GLubyte b = lerp(B[loIdx], B[hiIdx], mix);
-
-    return { r, g, b };
+        GLubyte r = lerp(R[loIdx], R[hiIdx], mix);
+        GLubyte g = lerp(G[loIdx], G[hiIdx], mix);
+        GLubyte b = lerp(B[loIdx], B[hiIdx], mix);
+        return { r, g, b };
+    }
 }
 
 bool GlOrPViewer::load53(const DscrSpecialPlot &orbs) {

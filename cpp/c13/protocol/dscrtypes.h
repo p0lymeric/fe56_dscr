@@ -86,6 +86,18 @@ struct DscrSpecialMusic {
 };
 
 struct DscrSpecialPlot {
+
+    // TODO additional primitives based off 1574's extensions
+    // 223  1574
+    // POINT IS SPHERE TABL ; ;
+    // POINT XX , YY , ZZ , NVOL , COLOUR ; ;
+    // lineseg IS SEGM TABL ; ;
+    // lineseg XX 0, YY 0, ZZ 0, XX 1, YY 1, ZZ 1, COLOUR => SEGM ( VECT 0 ( XX 0, YY 0, ZZ 0 ) , VECT 1 ( XX 1, YY 1, ZZ 1 ) ) ; ;
+    // cube IS cube ; ;
+    // cube XX , YY , ZZ , XX NORM , COLOUR ; ;
+    // rectprism IS rectprism ; ;
+    // rectprism XX , YY , ZZ , XX NORM , YY NORM , ZZ NORM , COLOUR
+
     enum Symbol {
         // Orb plots, as seen in the game
         UnaryMinus = -1,
