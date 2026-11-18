@@ -284,49 +284,6 @@ static bool consumeSep(QSpan<const qint64> &symbols, qsizetype &cur) {
     return true;
 }
 
-static std::optional<DscrSpecialPlot::Orb> consumeOrb(QSpan<const qint64> symbols, qsizetype &cur) {
-    qsizetype cur2 = cur;
-    if(cur2 >= symbols.size() || symbols[cur2] != DscrSpecialPlot::Symbol::OrbSym) {
-        return std::nullopt;
-    }
-    cur2++;
-
-    DscrSpecialPlot::Orb orb;
-    auto maybeX = consumeSignedFloat(symbols, cur2);
-    if(consumeSep(symbols, cur2)) {
-        orb.x = maybeX.value_or(0);
-    } else {
-        return std::nullopt;
-    }
-    auto maybeZ = consumeSignedFloat(symbols, cur2);
-    if(consumeSep(symbols, cur2)) {
-        orb.z = -maybeZ.value_or(0);
-    } else {
-        return std::nullopt;
-    }
-    auto maybeY = consumeSignedFloat(symbols, cur2);
-    if(consumeSep(symbols, cur2)) {
-        orb.y = maybeY.value_or(0);
-    } else {
-        return std::nullopt;
-    }
-    auto maybeD = consumeUnsignedFloat(symbols, cur2);
-    if(consumeSep(symbols, cur2)) {
-        orb.d = maybeD.value_or(0);
-    } else {
-        return std::nullopt;
-    }
-    if(cur2 < symbols.size() && symbols[cur2] >= 0) {
-        orb.colourIdx = symbols[cur2];
-        cur2++;
-    } else {
-        orb.colourIdx = 0;
-    }
-
-    cur = cur2;
-    return orb;
-}
-
 static std::optional<DscrSpecialMusic::Note> consumeNote(
     QSpan<const qint64> symbols,
     qsizetype &cur
@@ -552,11 +509,236 @@ std::optional<DscrSpecialMusic> DscrSpecialMusic::fromSymbols(QSpan<const qint64
     return std::nullopt;
 }
 
+static std::optional<DscrSpecialPlot::Orb> consumeOrb(QSpan<const qint64> symbols, qsizetype &cur) {
+    qsizetype cur2 = cur;
+    if(cur2 >= symbols.size() || symbols[cur2] != DscrSpecialPlot::Symbol::OrbSym) {
+        return std::nullopt;
+    }
+    cur2++;
+
+    DscrSpecialPlot::Orb orb;
+    auto maybeX = consumeSignedFloat(symbols, cur2);
+    if(consumeSep(symbols, cur2)) {
+        orb.x = maybeX.value_or(0);
+    } else {
+        return std::nullopt;
+    }
+    auto maybeZ = consumeSignedFloat(symbols, cur2);
+    if(consumeSep(symbols, cur2)) {
+        orb.z = -maybeZ.value_or(0);
+    } else {
+        return std::nullopt;
+    }
+    auto maybeY = consumeSignedFloat(symbols, cur2);
+    if(consumeSep(symbols, cur2)) {
+        orb.y = maybeY.value_or(0);
+    } else {
+        return std::nullopt;
+    }
+    auto maybeD = consumeUnsignedFloat(symbols, cur2);
+    if(consumeSep(symbols, cur2)) {
+        orb.d = maybeD.value_or(0);
+    } else {
+        return std::nullopt;
+    }
+    if(cur2 < symbols.size() && symbols[cur2] >= 0) {
+        orb.colourIdx = symbols[cur2];
+        cur2++;
+    } else {
+        orb.colourIdx = 0;
+    }
+
+    cur = cur2;
+    return orb;
+}
+
+static std::optional<DscrSpecialPlot::Seg> consumeSeg(QSpan<const qint64> symbols, qsizetype &cur) {
+    qsizetype cur2 = cur;
+    if(cur2 >= symbols.size() || symbols[cur2] != DscrSpecialPlot::Symbol::SegSym) {
+        return std::nullopt;
+    }
+    cur2++;
+
+    DscrSpecialPlot::Seg seg;
+    auto maybeX0 = consumeSignedFloat(symbols, cur2);
+    if(consumeSep(symbols, cur2)) {
+        seg.x0 = maybeX0.value_or(0);
+    } else {
+        return std::nullopt;
+    }
+    auto maybeZ0 = consumeSignedFloat(symbols, cur2);
+    if(consumeSep(symbols, cur2)) {
+        seg.z0 = -maybeZ0.value_or(0);
+    } else {
+        return std::nullopt;
+    }
+    auto maybeY0 = consumeSignedFloat(symbols, cur2);
+    if(consumeSep(symbols, cur2)) {
+        seg.y0 = maybeY0.value_or(0);
+    } else {
+        return std::nullopt;
+    }
+    auto maybeX1 = consumeSignedFloat(symbols, cur2);
+    if(consumeSep(symbols, cur2)) {
+        seg.x1 = maybeX1.value_or(0);
+    } else {
+        return std::nullopt;
+    }
+    auto maybeZ1 = consumeSignedFloat(symbols, cur2);
+    if(consumeSep(symbols, cur2)) {
+        seg.z1 = -maybeZ1.value_or(0);
+    } else {
+        return std::nullopt;
+    }
+    auto maybeY1 = consumeSignedFloat(symbols, cur2);
+    if(consumeSep(symbols, cur2)) {
+        seg.y1 = maybeY1.value_or(0);
+    } else {
+        return std::nullopt;
+    }
+    if(cur2 < symbols.size() && symbols[cur2] >= 0) {
+        seg.colourIdx = symbols[cur2];
+        cur2++;
+    } else {
+        seg.colourIdx = 0;
+    }
+
+    cur = cur2;
+    return seg;
+}
+
+static std::optional<DscrSpecialPlot::Box> consumeRectPrism(QSpan<const qint64> symbols, qsizetype &cur) {
+    qsizetype cur2 = cur;
+    if(cur2 >= symbols.size() || symbols[cur2] != DscrSpecialPlot::Symbol::RectPrismSym) {
+        return std::nullopt;
+    }
+    cur2++;
+
+    DscrSpecialPlot::Box box;
+    auto maybeX = consumeSignedFloat(symbols, cur2);
+    if(consumeSep(symbols, cur2)) {
+        box.x = maybeX.value_or(0);
+    } else {
+        return std::nullopt;
+    }
+    auto maybeZ = consumeSignedFloat(symbols, cur2);
+    if(consumeSep(symbols, cur2)) {
+        box.z = -maybeZ.value_or(0);
+    } else {
+        return std::nullopt;
+    }
+    auto maybeY = consumeSignedFloat(symbols, cur2);
+    if(consumeSep(symbols, cur2)) {
+        box.y = maybeY.value_or(0);
+    } else {
+        return std::nullopt;
+    }
+    auto maybeXN = consumeUnsignedFloat(symbols, cur2);
+    if(consumeSep(symbols, cur2)) {
+        box.xn = maybeXN.value_or(0);
+    } else {
+        return std::nullopt;
+    }
+    auto maybeZN = consumeUnsignedFloat(symbols, cur2);
+    if(consumeSep(symbols, cur2)) {
+        box.zn = maybeZN.value_or(0);
+    } else {
+        return std::nullopt;
+    }
+    auto maybeYN = consumeUnsignedFloat(symbols, cur2);
+    if(consumeSep(symbols, cur2)) {
+        box.yn = maybeYN.value_or(0);
+    } else {
+        return std::nullopt;
+    }
+    if(cur2 < symbols.size() && symbols[cur2] >= 0) {
+        box.colourIdx = symbols[cur2];
+        cur2++;
+    } else {
+        box.colourIdx = 0;
+    }
+
+    cur = cur2;
+    return box;
+}
+
+static std::optional<DscrSpecialPlot::Box> consumeCube(QSpan<const qint64> symbols, qsizetype &cur) {
+    qsizetype cur2 = cur;
+    if(cur2 >= symbols.size() || symbols[cur2] != DscrSpecialPlot::Symbol::CubeSym) {
+        return std::nullopt;
+    }
+    cur2++;
+
+    DscrSpecialPlot::Box box;
+    auto maybeX = consumeSignedFloat(symbols, cur2);
+    if(consumeSep(symbols, cur2)) {
+        box.x = maybeX.value_or(0);
+    } else {
+        return std::nullopt;
+    }
+    auto maybeZ = consumeSignedFloat(symbols, cur2);
+    if(consumeSep(symbols, cur2)) {
+        box.z = -maybeZ.value_or(0);
+    } else {
+        return std::nullopt;
+    }
+    auto maybeY = consumeSignedFloat(symbols, cur2);
+    if(consumeSep(symbols, cur2)) {
+        box.y = maybeY.value_or(0);
+    } else {
+        return std::nullopt;
+    }
+    auto maybeN = consumeUnsignedFloat(symbols, cur2);
+    if(consumeSep(symbols, cur2)) {
+        box.xn = maybeN.value_or(0);
+        box.zn = maybeN.value_or(0);
+        box.yn = maybeN.value_or(0);
+    } else {
+        return std::nullopt;
+    }
+    if(cur2 < symbols.size() && symbols[cur2] >= 0) {
+        box.colourIdx = symbols[cur2];
+        cur2++;
+    } else {
+        box.colourIdx = 0;
+    }
+
+    cur = cur2;
+    return box;
+}
+
+static bool consumeShape(QSpan<const qint64> symbols, qsizetype &cur, DscrSpecialPlot &dsp) {
+    qsizetype cur2 = cur;
+    if(auto orb = consumeOrb(symbols, cur2); orb.has_value()) {
+        dsp.orbs.append(*orb);
+        cur = cur2;
+        return true;
+    } else if(auto seg = consumeSeg(symbols, cur2); seg.has_value()) {
+        dsp.segs.append(*seg);
+        cur = cur2;
+        return true;
+    } else if(auto box = consumeRectPrism(symbols, cur2); box.has_value()) {
+        dsp.boxes.append(*box);
+        cur = cur2;
+        return true;
+    } else if(auto box = consumeCube(symbols, cur2); box.has_value()) {
+        dsp.boxes.append(*box);
+        cur = cur2;
+        return true;
+    }
+
+    return false;
+}
+
 std::optional<DscrSpecialPlot> DscrSpecialPlot::fromSymbols(QSpan<const qint64> symbols, bool endMustTerminate, qsizetype *endWritebackNullable) {
     // Highly tolerant grammar to match some other client behaviours
     // PLOT := Plot Begin End
-    //       | Plot Begin ORB (Sep? ORB)* Sep? End
+    //       | Plot Begin SHAPE (Sep? SHAPE)* Sep? End
+    // SHAPE := ORB | SEG | RECTPRISM | CUBE
     // ORB := Orb SNUMBER? Sep SNUMBER? Sep SNUMBER? Sep UNUMBER? Sep Nonnegative?
+    // SEG := Orb SNUMBER? Sep SNUMBER? Sep SNUMBER? Sep SNUMBER? Sep SNUMBER? Sep SNUMBER? Sep Nonnegative?
+    // RECTPRISM := Orb SNUMBER? Sep SNUMBER? Sep SNUMBER? Sep UNUMBER? Sep UNUMBER? Sep UNUMBER? Sep Nonnegative?
+    // CUBE := Orb SNUMBER? Sep SNUMBER? Sep SNUMBER? Sep UNUMBER? Sep Nonnegative?
     // UNUMBER := Nonnegative Radix?
     //          | Radix FRACTION
     //          | Nonnegative Radix FRACTION
@@ -571,6 +753,23 @@ std::optional<DscrSpecialPlot> DscrSpecialPlot::fromSymbols(QSpan<const qint64> 
     // End := "-15"
     // Orb := "-52"
     // Plot := "-53"
+    // SegSym = -326,
+    // RectPrismSym = -157442,
+    // CubeSym = -524000,
+
+    // Additional primitives based off 1574's extensions
+    // 223  1574
+    // POINT IS SPHERE TABL ; ;
+    // POINT XX , YY , ZZ , NVOL , COLOUR ; ;
+    // lineseg IS SEGM TABL ; ;
+    // lineseg XX 0, YY 0, ZZ 0, XX 1, YY 1, ZZ 1, COLOUR => SEGM ( VECT 0 ( XX 0, YY 0, ZZ 0 ) , VECT 1 ( XX 1, YY 1, ZZ 1 ) ) ; ;
+    // cube IS cube ; ;
+    // cube XX , YY , ZZ , XX NORM , COLOUR ; ;
+    // rectprism IS rectprism ; ;
+    // rectprism XX , YY , ZZ , XX NORM , YY NORM , ZZ NORM , COLOUR
+
+    // |-49|-100|-403|-3|-50|-100|-418|-3|-51|-100|-419|-2|-2|-53|-14|-52|0|-3|0|-3|0|-3|1|-3|65|-3|-52|0|-3|0|-3|2|-3|1|-3|66|-3|-52|0|-3|0|-3|4|-3|1|-3|67|-3|-52|0|-3|0|-3|6|-3|1|-3|68|-3|-52|0|-3|2|-3|0|-3|1|-3|69|-3|-52|0|-3|2|-3|2|-3|1|-3|70|-3|-52|0|-3|2|-3|4|-3|1|-3|71|-3|-52|0|-3|2|-3|6|-3|1|-3|72|-3|-52|0|-3|4|-3|0|-3|1|-3|73|-3|-52|0|-3|4|-3|2|-3|1|-3|74|-3|-52|0|-3|4|-3|4|-3|1|-3|75|-3|-52|0|-3|4|-3|6|-3|1|-3|76|-3|-52|0|-3|6|-3|0|-3|1|-3|77|-3|-52|0|-3|6|-3|2|-3|1|-3|78|-3|-52|0|-3|6|-3|4|-3|1|-3|79|-3|-52|0|-3|6|-3|6|-3|1|-3|80|-3|-52|2|-3|0|-3|0|-3|1|-3|81|-3|-52|2|-3|0|-3|2|-3|1|-3|82|-3|-52|2|-3|0|-3|4|-3|1|-3|83|-3|-52|2|-3|0|-3|6|-3|1|-3|84|-3|-52|2|-3|2|-3|0|-3|1|-3|85|-3|-52|2|-3|2|-3|2|-3|1|-3|86|-3|-52|2|-3|2|-3|4|-3|1|-3|87|-3|-52|2|-3|2|-3|6|-3|1|-3|88|-3|-52|2|-3|4|-3|0|-3|1|-3|89|-3|-52|2|-3|4|-3|2|-3|1|-3|90|-3|-52|2|-3|4|-3|4|-3|1|-3|91|-3|-52|2|-3|4|-3|6|-3|1|-3|92|-3|-52|2|-3|6|-3|0|-3|1|-3|93|-3|-52|2|-3|6|-3|2|-3|1|-3|94|-3|-52|2|-3|6|-3|4|-3|1|-3|95|-3|-52|2|-3|6|-3|6|-3|1|-3|96|-3|-52|4|-3|0|-3|0|-3|1|-3|97|-3|-52|4|-3|0|-3|2|-3|1|-3|98|-3|-52|4|-3|0|-3|4|-3|1|-3|99|-3|-52|4|-3|0|-3|6|-3|1|-3|100|-3|-52|4|-3|2|-3|0|-3|1|-3|101|-3|-52|4|-3|2|-3|2|-3|1|-3|102|-3|-52|4|-3|2|-3|4|-3|1|-3|103|-3|-52|4|-3|2|-3|6|-3|1|-3|104|-3|-52|4|-3|4|-3|0|-3|1|-3|105|-3|-52|4|-3|4|-3|2|-3|1|-3|106|-3|-52|4|-3|4|-3|4|-3|1|-3|107|-3|-52|4|-3|4|-3|6|-3|1|-3|108|-3|-52|4|-3|6|-3|0|-3|1|-3|109|-3|-52|4|-3|6|-3|2|-3|1|-3|110|-3|-52|4|-3|6|-3|4|-3|1|-3|111|-3|-52|4|-3|6|-3|6|-3|1|-3|112|-3|-52|6|-3|0|-3|0|-3|1|-3|113|-3|-52|6|-3|0|-3|2|-3|1|-3|114|-3|-52|6|-3|0|-3|4|-3|1|-3|115|-3|-52|6|-3|0|-3|6|-3|1|-3|116|-3|-52|6|-3|2|-3|0|-3|1|-3|117|-3|-52|6|-3|2|-3|2|-3|1|-3|118|-3|-52|6|-3|2|-3|4|-3|1|-3|119|-3|-52|6|-3|2|-3|6|-3|1|-3|120|-3|-52|6|-3|4|-3|0|-3|1|-3|121|-3|-52|6|-3|4|-3|2|-3|1|-3|122|-3|-52|6|-3|4|-3|4|-3|1|-3|123|-3|-52|6|-3|4|-3|6|-3|1|-3|124|-3|-52|6|-3|6|-3|0|-3|1|-3|125|-3|-52|6|-3|6|-3|2|-3|1|-3|126|-3|-52|6|-3|6|-3|4|-3|1|-3|127|-3|-52|6|-3|6|-3|6|-3|1|-3|128|-15
+    // |-53|-14|-524000|0|-3|0|-3|0|-3|1|-10|5|-3|64|-3|-157442|0|-3|0|-3|0|-3|1|-3|1|-3|3|-3|50|-3|-157442|0|-3|0|-3|0|-3|1|-3|3|-3|1|-3|50|-3|-157442|0|-3|0|-3|0|-3|3|-3|1|-3|1|-3|50|-3|-326|-1|1|-3|-1|1|-3|-1|1|-3|-1|1|-3|-1|1|-3|1|-3|0|-3|-326|-1|1|-3|-1|1|-3|-1|1|-3|-1|1|-3|1|-3|-1|1|-3|3|-3|-326|-1|1|-3|-1|1|-3|-1|1|-3|1|-3|-1|1|-3|-1|1|-3|6|-3|-326|1|-3|1|-3|1|-3|1|-3|1|-3|-1|1|-3|9|-3|-326|1|-3|1|-3|1|-3|1|-3|-1|1|-3|1|-3|12|-3|-326|1|-3|1|-3|1|-3|-1|1|-3|1|-3|1|-3|15|-3|-326|-1|1|-3|-1|1|-3|1|-3|-1|1|-3|1|-3|1|-3|17|-3|-326|-1|1|-3|-1|1|-3|1|-3|1|-3|-1|1|-3|1|-3|19|-3|-326|1|-3|-1|1|-3|1|-3|1|-3|-1|1|-3|-1|1|-3|21|-3|-326|1|-3|-1|1|-3|-1|1|-3|1|-3|1|-3|-1|1|-3|23|-3|-326|1|-3|1|-3|-1|1|-3|-1|1|-3|1|-3|-1|1|-3|25|-3|-326|-1|1|-3|1|-3|-1|1|-3|-1|1|-3|1|-3|1|-3|27|-15
 
     if(symbols.size() < 3) {
         return std::nullopt;
@@ -578,10 +777,9 @@ std::optional<DscrSpecialPlot> DscrSpecialPlot::fromSymbols(QSpan<const qint64> 
     if(symbols[0] != DscrSpecialPlot::Symbol::Plot || symbols[1] != DscrSpecialPlot::Symbol::Begin) {
         return std::nullopt;
     }
-    QVector<DscrSpecialPlot::Orb> orbs;
+    DscrSpecialPlot plot;
     qsizetype cur = 2;
-    if(auto maybeOrb = consumeOrb(symbols, cur); maybeOrb.has_value()) {
-        orbs.append(*maybeOrb);
+    if(consumeShape(symbols, cur, plot)) {
         while(cur < symbols.size()) {
             if(symbols[cur] == DscrSpecialPlot::Symbol::Sep) {
                 cur++;
@@ -590,11 +788,9 @@ std::optional<DscrSpecialPlot> DscrSpecialPlot::fromSymbols(QSpan<const qint64> 
                 // allow trailing Sep (C/Python-like semantics)
                 break;
             }
-            auto maybeOrb2 = consumeOrb(symbols, cur);
-            if(!maybeOrb2.has_value()) {
+            if(!consumeShape(symbols, cur, plot)) {
                 return std::nullopt;
             }
-            orbs.append(*maybeOrb2);
         }
     }
     bool endCondition = endMustTerminate ? cur != symbols.size() - 1 : cur >= symbols.size();
@@ -604,7 +800,7 @@ std::optional<DscrSpecialPlot> DscrSpecialPlot::fromSymbols(QSpan<const qint64> 
     if(endWritebackNullable != nullptr) {
         *endWritebackNullable = cur + 1;
     }
-    return DscrSpecialPlot { orbs };
+    return plot;
 }
 
 QVector<DscrSpecialSequence> DscrSpecialSequence::findAll(QSpan<const qint64> symbols) {

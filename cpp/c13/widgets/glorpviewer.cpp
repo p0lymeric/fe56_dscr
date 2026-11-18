@@ -7,6 +7,7 @@
 #include <QOpenGLFunctions>
 #include <QOpenGLExtraFunctions>
 #include <QFile>
+#include <QQuaternion>
 
 // Note: Qt recommends a particular pattern for initializing and destroying QOpenGLWidgets
 // https://doc.qt.io/qt-6/qopenglwidget.html
@@ -17,6 +18,60 @@ GlOrPViewer::GlOrPViewer(QWidget *parent) : QOpenGLWidget{parent} {
 GlOrPViewer::~GlOrPViewer() {
     this->cleanup();
 }
+
+static const GLfloat UNIT_CUBE_GL_VERTICES[24 * 6] = {
+    // +X
+    1, -1, -1, 1, 0, 0,
+    1, 1, -1, 1, 0, 0,
+    1, 1, 1, 1, 0, 0,
+    1, -1, 1, 1, 0, 0,
+    // -X
+    -1, -1, -1, -1, 0, 0,
+    -1, -1, 1, -1, 0, 0,
+    -1, 1, 1, -1, 0, 0,
+    -1, 1, -1, -1, 0, 0,
+    // +Y
+    -1, 1, -1, 0, 1, 0,
+    -1, 1, 1, 0, 1, 0,
+    1, 1, 1, 0, 1, 0,
+    1, 1, -1, 0, 1, 0,
+    // -Y
+    -1, -1, -1, 0, -1, 0,
+    1, -1, -1, 0, -1, 0,
+    1, -1, 1, 0, -1, 0,
+    -1, -1, 1, 0, -1, 0,
+    // +Z
+    -1, -1, 1, 0, 0, 1,
+    1, -1, 1, 0, 0, 1,
+    1, 1, 1, 0, 0, 1,
+    -1, 1, 1, 0, 0, 1,
+    // -Z
+    -1, -1, -1, 0, 0, -1,
+    -1, 1, -1, 0, 0, -1,
+    1, 1, -1, 0, 0, -1,
+    1, -1, -1, 0, 0, -1,
+};
+
+static const GLuint UNIT_CUBE_GL_INDICES[36] = {
+    // +X
+    0,  1,  2,
+    0,  2,  3,
+    // -X
+    4,  5,  6,
+    4,  6,  7,
+    // +Y
+    8,  9, 10,
+    8, 10, 11,
+    // -Y
+    12, 13, 14,
+    12, 14, 15,
+    // +Z
+    16, 17, 18,
+    16, 18, 19,
+    // -Z
+    20, 21, 22,
+    20, 22, 23,
+};;
 
 static GLubyte lerp(GLubyte start, GLubyte end, float mix) {
     return std::lround(float(start) * (1.0f - mix) + float(end) * mix);
@@ -66,10 +121,10 @@ static std::array<GLubyte, 3> getIndexedColour(int index) {
     }
 }
 
-bool GlOrPViewer::load53(const DscrSpecialPlot &orbs) {
+bool GlOrPViewer::load53(const DscrSpecialPlot &plot) {
     this->m_boundingSphereRadius = 0.0f;
-    this->m_drawInstances.clear();
-    for(auto &orb : orbs.orbs) {
+    this->m_spheres.drawInstances.clear();
+    for(auto &orb : plot.orbs) {
         QMatrix4x4 model;
         DrawInstance oai;
 
@@ -88,7 +143,56 @@ bool GlOrPViewer::load53(const DscrSpecialPlot &orbs) {
             this->m_boundingSphereRadius = modelOuterExtremity;
         }
 
-        this->m_drawInstances.append(oai);
+        this->m_spheres.drawInstances.append(oai);
+    }
+    this->m_cubes.drawInstances.clear();
+    for(auto &box : plot.boxes) {
+        QMatrix4x4 model;
+        DrawInstance oai;
+
+        model.translate(box.x, box.y, box.z);
+        model.scale(box.xn / 2.0f, box.yn / 2.0f, box.zn / 2.0f);
+        std::copy_n(model.constData(), 16, oai.m);
+        auto colour = getIndexedColour(box.colourIdx);
+        oai.rgba[0] = colour[0];
+        oai.rgba[1] = colour[1];
+        oai.rgba[2] = colour[2];
+        oai.rgba[3] = 255;
+
+        // TODO outer extremity calculation
+        float modelOuterExtremity = QVector3D(box.x, box.y, box.z).length() + 2 * std::max(box.xn / 2.0f, std::max(box.yn / 2.0f, box.zn / 2.0f));
+        if(modelOuterExtremity > this->m_boundingSphereRadius) {
+            this->m_boundingSphereRadius = modelOuterExtremity;
+        }
+
+        this->m_cubes.drawInstances.append(oai);
+    }
+    for(auto &seg: plot.segs) {
+        // hacky line by stretching a box
+        QVector3D p0(seg.x0, seg.y0, seg.z0);
+        QVector3D p1(seg.x1, seg.y1, seg.z1);
+        QVector3D v = p1 - p0;
+
+        QMatrix4x4 model;
+        DrawInstance oai;
+
+        model.translate((p0 + p1) / 2);
+        model.rotate(QQuaternion::rotationTo(QVector3D(1.0f, 0.0f, 0.0f), v));
+        model.scale(v.length() / 2.0f, 0.02f, 0.02f);
+        std::copy_n(model.constData(), 16, oai.m);
+        auto colour = getIndexedColour(seg.colourIdx);
+        oai.rgba[0] = colour[0];
+        oai.rgba[1] = colour[1];
+        oai.rgba[2] = colour[2];
+        oai.rgba[3] = 255;
+
+        // TODO outer extremity calculation
+        // float modelOuterExtremity = QVector3D(box.x, box.y, box.z).length() + 2 * std::max(box.xn / 2.0f, std::max(box.yn / 2.0f, box.zn / 2.0f));
+        // if(modelOuterExtremity > this->m_boundingSphereRadius) {
+        //     this->m_boundingSphereRadius = modelOuterExtremity;
+        // }
+
+        this->m_cubes.drawInstances.append(oai);
     }
     this->m_drawInstancesDirty = true;
 
@@ -96,9 +200,47 @@ bool GlOrPViewer::load53(const DscrSpecialPlot &orbs) {
     return true;
 }
 
+static void initializeMeshInstanceCollection(MeshInstanceCollection& mic, QOpenGLShaderProgram *m_program, const void *vertexData, int vertexBytes, const void *indexData, int indexBytes, int indexSize) {
+    QOpenGLExtraFunctions *g = QOpenGLContext::currentContext()->extraFunctions();
+
+    mic.vao.create();
+    if (mic.vao.isCreated()) {
+        mic.vao.bind();
+    }
+
+    mic.vbo.create();
+    mic.vbo.bind();
+    mic.vbo.allocate(vertexData, vertexBytes);
+    const int STRIDE = 6 * sizeof(GLfloat);
+    m_program->enableAttributeArray(0);
+    m_program->setAttributeBuffer(0, GL_FLOAT, 0, 3, STRIDE);
+    m_program->enableAttributeArray(1);
+    m_program->setAttributeBuffer(1, GL_FLOAT, 3 * sizeof(GLfloat), 3, STRIDE);
+    mic.vbo.release();
+
+    mic.ibo.create();
+    mic.ibo.bind();
+    mic.ibo.allocate(indexData, indexBytes);
+    mic.numIboIndices = indexSize;
+
+    mic.ivbo.create();
+    mic.ivbo.bind();
+    mic.numArrayInstances = 0;
+    for(int i = 0; i < 4; i++) { // 2-5
+        m_program->enableAttributeArray(2 + i);
+        m_program->setAttributeBuffer(2 + i, GL_FLOAT, i * 4 * sizeof(GLfloat), 4, sizeof(DrawInstance));
+        g->glVertexAttribDivisor(2 + i, 1);
+    }
+    m_program->enableAttributeArray(6);
+    m_program->setAttributeBuffer(6, GL_UNSIGNED_BYTE, 4 * 4 * sizeof(GLfloat), 4, sizeof(DrawInstance));
+    g->glVertexAttribDivisor(6, 1);
+    mic.ivbo.release();
+
+    mic.vao.release();
+}
+
 void GlOrPViewer::initializeGL() {
     QOpenGLFunctions *f = QOpenGLContext::currentContext()->functions();
-    QOpenGLExtraFunctions *g = QOpenGLContext::currentContext()->extraFunctions();
 
     f->glEnable(GL_DEPTH_TEST);
     f->glEnable(GL_CULL_FACE);
@@ -107,11 +249,6 @@ void GlOrPViewer::initializeGL() {
     m_program->addShaderFromSourceFile(QOpenGLShader::Vertex, ":/shaders/blinn_phong_vertex.glsl");
     m_program->addShaderFromSourceFile(QOpenGLShader::Fragment, ":/shaders/blinn_phong_frag.glsl");
     m_program->link();
-
-    m_vao.create();
-    if (m_vao.isCreated()) {
-        m_vao.bind();
-    }
 
     QVector<GLfloat> vertices;
     QVector<GLuint> indices;
@@ -140,35 +277,8 @@ void GlOrPViewer::initializeGL() {
         icoSphFile.close();
     }
 
-    m_vbo.create();
-    m_vbo.bind();
-    m_vbo.allocate(vertices.data(), vertices.size() * sizeof(GLfloat));
-    const int STRIDE = 6 * sizeof(GLfloat);
-    m_program->enableAttributeArray(0);
-    m_program->setAttributeBuffer(0, GL_FLOAT, 0, 3, STRIDE);
-    m_program->enableAttributeArray(1);
-    m_program->setAttributeBuffer(1, GL_FLOAT, 3 * sizeof(GLfloat), 3, STRIDE);
-    m_vbo.release();
-
-    this->m_ibo.create();
-    this->m_ibo.bind();
-    this->m_ibo.allocate(indices.data(), indices.size() * sizeof(GLuint));
-    this->m_numIboIndices = indices.size();
-
-    this->m_ivbo.create();
-    this->m_ivbo.bind();
-    this->m_numArrayInstances = 0;
-    for(int i = 0; i < 4; i++) { // 2-5
-        m_program->enableAttributeArray(2 + i);
-        m_program->setAttributeBuffer(2 + i, GL_FLOAT, i * 4 * sizeof(GLfloat), 4, sizeof(DrawInstance));
-        g->glVertexAttribDivisor(2 + i, 1);
-    }
-    m_program->enableAttributeArray(6);
-    m_program->setAttributeBuffer(6, GL_UNSIGNED_BYTE, 4 * 4 * sizeof(GLfloat), 4, sizeof(DrawInstance));
-    g->glVertexAttribDivisor(6, 1);
-    this->m_ivbo.release();
-
-    m_vao.release();
+    initializeMeshInstanceCollection(this->m_spheres, m_program, vertices.data(), vertices.size() * sizeof(GLfloat), indices.data(), indices.size() * sizeof(GLuint), indices.size());
+    initializeMeshInstanceCollection(this->m_cubes, m_program, UNIT_CUBE_GL_VERTICES, sizeof(UNIT_CUBE_GL_VERTICES), UNIT_CUBE_GL_INDICES, sizeof(UNIT_CUBE_GL_INDICES), sizeof(UNIT_CUBE_GL_INDICES) / sizeof(GLuint));
 
     connect(context(), &QOpenGLContext::aboutToBeDestroyed, this, &GlOrPViewer::cleanup);
 }
@@ -209,16 +319,25 @@ void GlOrPViewer::paintGL() {
     this->m_program->setUniformValue("lightPos", cameraPos + this->m_boundingSphereRadius * QVector3D(-1.0f, 1.0f, 0.0f));
 
     if(this->m_drawInstancesDirty) {
-        this->m_ivbo.bind();
-        this->m_ivbo.allocate(this->m_drawInstances.data(), this->m_drawInstances.size() * sizeof(DrawInstance));
-        this->m_ivbo.release();
-        this->m_numArrayInstances = this->m_drawInstances.size();
+        this->m_spheres.ivbo.bind();
+        this->m_spheres.ivbo.allocate(this->m_spheres.drawInstances.data(), this->m_spheres.drawInstances.size() * sizeof(DrawInstance));
+        this->m_spheres.ivbo.release();
+        this->m_spheres.numArrayInstances = this->m_spheres.drawInstances.size();
+        this->m_cubes.ivbo.bind();
+        this->m_cubes.ivbo.allocate(this->m_cubes.drawInstances.data(), this->m_cubes.drawInstances.size() * sizeof(DrawInstance));
+        this->m_cubes.ivbo.release();
+        this->m_cubes.numArrayInstances = this->m_cubes.drawInstances.size();
         this->m_drawInstancesDirty = false;
     }
 
-    this->m_vao.bind();
-    g->glDrawElementsInstanced(GL_TRIANGLES, this->m_numIboIndices, GL_UNSIGNED_INT, nullptr, this->m_numArrayInstances);
-    this->m_vao.release();
+    this->m_spheres.vao.bind();
+    g->glDrawElementsInstanced(GL_TRIANGLES, this->m_spheres.numIboIndices, GL_UNSIGNED_INT, nullptr, this->m_spheres.numArrayInstances);
+    this->m_spheres.vao.release();
+
+    this->m_cubes.vao.bind();
+    g->glDrawElementsInstanced(GL_TRIANGLES, this->m_cubes.numIboIndices, GL_UNSIGNED_INT, nullptr, this->m_cubes.numArrayInstances);
+    this->m_cubes.vao.release();
+
     this->m_program->release();
 }
 
@@ -228,10 +347,15 @@ void GlOrPViewer::cleanup() {
     delete this->m_program;
     this->m_program = nullptr;
 
-    this->m_ivbo.destroy();
-    this->m_ibo.destroy();
-    this->m_vbo.destroy();
-    this->m_vao.destroy();
+    this->m_cubes.ivbo.destroy();
+    this->m_cubes.ibo.destroy();
+    this->m_cubes.vbo.destroy();
+    this->m_cubes.vao.destroy();
+
+    this->m_spheres.ivbo.destroy();
+    this->m_spheres.ibo.destroy();
+    this->m_spheres.vbo.destroy();
+    this->m_spheres.vao.destroy();
 
     this->doneCurrent();
     disconnect(context(), &QOpenGLContext::aboutToBeDestroyed, this, &GlOrPViewer::cleanup);

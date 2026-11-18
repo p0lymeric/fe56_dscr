@@ -13,6 +13,16 @@ struct DrawInstance {
     GLubyte rgba[4];
 };
 
+struct MeshInstanceCollection {
+    QOpenGLVertexArrayObject vao;
+    QOpenGLBuffer vbo{QOpenGLBuffer::VertexBuffer};
+    QOpenGLBuffer ibo{QOpenGLBuffer::IndexBuffer};
+    QOpenGLBuffer ivbo{QOpenGLBuffer::VertexBuffer};
+    int numIboIndices = 0;
+    int numArrayInstances = 0;
+    QVector<DrawInstance> drawInstances;
+};
+
 class GlOrPViewer : public QOpenGLWidget {
     Q_OBJECT
 
@@ -20,7 +30,7 @@ public:
     explicit GlOrPViewer(QWidget *parent = nullptr);
     ~GlOrPViewer();
 
-    bool load53(const DscrSpecialPlot &symbols);
+    bool load53(const DscrSpecialPlot &plot);
 
 signals:
 
@@ -32,15 +42,10 @@ protected:
 private:
     void cleanup();
 
-    QOpenGLVertexArrayObject m_vao;
-    QOpenGLBuffer m_vbo{QOpenGLBuffer::VertexBuffer};
-    QOpenGLBuffer m_ibo{QOpenGLBuffer::IndexBuffer};
-    QOpenGLBuffer m_ivbo{QOpenGLBuffer::VertexBuffer};
-    int m_numIboIndices = 0;
-    int m_numArrayInstances = 0;
+    MeshInstanceCollection m_spheres;
+    MeshInstanceCollection m_cubes;
     QOpenGLShaderProgram *m_program = nullptr;
 
-    QVector<DrawInstance> m_drawInstances;
     bool m_drawInstancesDirty = false;;
     float m_boundingSphereRadius = 0.0f;
     float m_currentDrawboxAspectRatio = 1.0f;

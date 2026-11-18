@@ -86,18 +86,6 @@ struct DscrSpecialMusic {
 };
 
 struct DscrSpecialPlot {
-
-    // TODO additional primitives based off 1574's extensions
-    // 223  1574
-    // POINT IS SPHERE TABL ; ;
-    // POINT XX , YY , ZZ , NVOL , COLOUR ; ;
-    // lineseg IS SEGM TABL ; ;
-    // lineseg XX 0, YY 0, ZZ 0, XX 1, YY 1, ZZ 1, COLOUR => SEGM ( VECT 0 ( XX 0, YY 0, ZZ 0 ) , VECT 1 ( XX 1, YY 1, ZZ 1 ) ) ; ;
-    // cube IS cube ; ;
-    // cube XX , YY , ZZ , XX NORM , COLOUR ; ;
-    // rectprism IS rectprism ; ;
-    // rectprism XX , YY , ZZ , XX NORM , YY NORM , ZZ NORM , COLOUR
-
     enum Symbol {
         // Orb plots, as seen in the game
         UnaryMinus = -1,
@@ -107,6 +95,9 @@ struct DscrSpecialPlot {
         End = -15,
         OrbSym = -52,
         Plot = -53,
+        SegSym = -326,
+        RectPrismSym = -157442,
+        CubeSym = -524000,
     };
 
     struct Orb {
@@ -117,7 +108,29 @@ struct DscrSpecialPlot {
         int colourIdx;
     };
 
+    struct Box {
+        float x;
+        float z;
+        float y;
+        float xn;
+        float zn;
+        float yn;
+        int colourIdx;
+    };
+
+    struct Seg {
+        float x0;
+        float z0;
+        float y0;
+        float x1;
+        float z1;
+        float y1;
+        int colourIdx;
+    };
+
     QVector<Orb> orbs;
+    QVector<Box> boxes;
+    QVector<Seg> segs;
 
     static std::optional<DscrSpecialPlot> fromSymbols(QSpan<const qint64> symbols, bool endMustTerminate, qsizetype *endWritebackNullable);
 };
