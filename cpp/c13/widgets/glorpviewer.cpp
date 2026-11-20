@@ -159,8 +159,7 @@ bool GlOrPViewer::load53(const DscrSpecialPlot &plot) {
         oai.rgba[2] = colour[2];
         oai.rgba[3] = 255;
 
-        // TODO outer extremity calculation
-        float modelOuterExtremity = QVector3D(box.x, box.y, box.z).length() + 2 * std::max(box.xn / 2.0f, std::max(box.yn / 2.0f, box.zn / 2.0f));
+        float modelOuterExtremity = QVector3D(box.x + box.xn / 2.0f, box.y + box.yn / 2.0f, box.z + box.zn / 2.0f).length();
         if(modelOuterExtremity > this->m_boundingSphereRadius) {
             this->m_boundingSphereRadius = modelOuterExtremity;
         }
@@ -186,11 +185,10 @@ bool GlOrPViewer::load53(const DscrSpecialPlot &plot) {
         oai.rgba[2] = colour[2];
         oai.rgba[3] = 255;
 
-        // TODO outer extremity calculation
-        // float modelOuterExtremity = QVector3D(box.x, box.y, box.z).length() + 2 * std::max(box.xn / 2.0f, std::max(box.yn / 2.0f, box.zn / 2.0f));
-        // if(modelOuterExtremity > this->m_boundingSphereRadius) {
-        //     this->m_boundingSphereRadius = modelOuterExtremity;
-        // }
+        float modelOuterExtremity = std::max(p0.length(), p1.length());
+        if(modelOuterExtremity > this->m_boundingSphereRadius) {
+            this->m_boundingSphereRadius = modelOuterExtremity;
+        }
 
         this->m_cubes.drawInstances.append(oai);
     }
