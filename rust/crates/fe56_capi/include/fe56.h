@@ -91,6 +91,10 @@ typedef struct Fe56RSymbolized {
     struct Fe56RVec_SymbolizerTrace traces;
 } Fe56RSymbolized;
 
+typedef struct Fe56SymbolizerConfig {
+    bool case_sensitive;
+} Fe56SymbolizerConfig;
+
 typedef struct Fe56RStr {
     uint8_t *ptr;
     uintptr_t size;
@@ -127,7 +131,8 @@ bool fe56_dictionary_set_global_format(struct Fe56ShadowDictionary *p_dictionary
 
 void fe56_dictionary_free(struct Fe56ShadowDictionary *p_dictionary);
 
-struct Fe56RSymbolized fe56_mwis_symbolize(const struct Fe56ShadowDictionary *p_dictionary,
+struct Fe56RSymbolized fe56_mwis_symbolize(const struct Fe56SymbolizerConfig *p_config,
+                                           const struct Fe56ShadowDictionary *p_dictionary,
                                            const uint8_t *p_text,
                                            uintptr_t size);
 

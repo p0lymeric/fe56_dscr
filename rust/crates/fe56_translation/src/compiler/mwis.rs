@@ -202,7 +202,7 @@ impl Add for MwisWeight {
 pub struct MwisSymbolizer;
 
 impl Symbolizer for MwisSymbolizer {
-    fn symbolize(&self, dictionary: &dyn dictionary::Dictionary, input: &str) -> Symbolized {
+    fn symbolize(&self, config: &SymbolizerConfig, dictionary: &dyn dictionary::Dictionary, input: &str) -> Symbolized {
         // List all possible tokenizations of the input string
         // This must be sorted by end for the optimization algorithm
         let token_candidates = get_token_candidates(dictionary, input);
@@ -284,7 +284,7 @@ impl Symbolizer for MwisSymbolizer {
                             bare_ids: 0,
                             tokens_penalty: 1,
                             words: 1,
-                            exact_words: if tk.kind == dictionary::TokenizeResultKind::WordExact { 1 } else { 0 },
+                            exact_words: if config.case_sensitive && tk.kind == dictionary::TokenizeResultKind::WordExact { 1 } else { 0 },
                             // digits: 0
                         }
                     },

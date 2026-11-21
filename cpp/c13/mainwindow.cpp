@@ -368,7 +368,10 @@ void MainWindow::onMessageEditorTextChanged() {
     const QByteArray textUtf8 = text.toUtf8();
     QVector<qsizetype> utf8ToUtf16Map = makeUtf8ToUtf16Map(text);
 
-    Fe56RSymbolized symbolized = fe56_mwis_symbolize(this->core->dictionary.fe56Dictionary, reinterpret_cast<const uint8_t *>(textUtf8.constData()), textUtf8.size());
+    // TODO make configurable
+    Fe56SymbolizerConfig config = { false };
+
+    Fe56RSymbolized symbolized = fe56_mwis_symbolize(&config, this->core->dictionary.fe56Dictionary, reinterpret_cast<const uint8_t *>(textUtf8.constData()), textUtf8.size());
     Fe56RVec_SymbolizerToken &tokens = symbolized.tokens;
     Fe56RVec_SymbolizerTrace &traces = symbolized.traces;
 

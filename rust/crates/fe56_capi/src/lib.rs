@@ -1,5 +1,6 @@
 use fe56_translation::compiler::Desymbolizer;
 use fe56_translation::compiler::Symbolizer;
+use fe56_translation::compiler::SymbolizerConfig;
 use fe56_translation::compiler::SymbolizerSpan;
 use fe56_translation::compiler::SymbolizerToken;
 use fe56_translation::compiler::SymbolizerTrace;
@@ -69,11 +70,12 @@ pub struct RSymbolized {
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn fe56_mwis_symbolize(p_dictionary: *const ShadowDictionary, p_text: *const u8, size: usize) -> RSymbolized {
+pub extern "C" fn fe56_mwis_symbolize(p_config: *const SymbolizerConfig, p_dictionary: *const ShadowDictionary, p_text: *const u8, size: usize) -> RSymbolized {
+    let config = unsafe { &*p_config };
     let dictionary = unsafe { &*p_dictionary };
     let text = unsafe { str::from_utf8_unchecked(std::slice::from_raw_parts(p_text, size)) };
 
-    let symbolized = MwisSymbolizer.symbolize(dictionary, text);
+    let symbolized = MwisSymbolizer.symbolize(config, dictionary, text);
 
     let (tokens_ptr, tokens_size, tokens_capacity) = symbolized.tokens.into_raw_parts();
     let tokens = RVec { ptr: tokens_ptr, size: tokens_size, capacity: tokens_capacity };

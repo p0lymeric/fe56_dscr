@@ -1,4 +1,5 @@
 use fe56_translation::compiler::Symbolizer;
+use fe56_translation::compiler::SymbolizerConfig;
 use fe56_translation::compiler::mwis::MwisSymbolizer;
 use fe56_translation::dictionary;
 use fe56_translation::dictionary::Dictionary;
@@ -86,21 +87,24 @@ fn criterion_benchmark(c: &mut Criterion) {
             id -= 1;
         }
     }
+
+    let symbolizer_config = SymbolizerConfig { case_sensitive: false };
+
     let pride_and_prejudice = std::fs::read_to_string(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/artifacts/third_party/pride_and_prejudice.txt")).unwrap();
     c.bench_function("casefold pride and prejudice", |b| b.iter(|| dictionary.casefold(black_box(&pride_and_prejudice))));
-    c.bench_function("tokenize pride and prejudice", |b| b.iter(|| MwisSymbolizer.symbolize(black_box(&dictionary), black_box(&pride_and_prejudice))));
+    c.bench_function("tokenize pride and prejudice", |b| b.iter(|| MwisSymbolizer.symbolize(&symbolizer_config, black_box(&dictionary), black_box(&pride_and_prejudice))));
 
     let a_pickle_for_the_knowing_ones = std::fs::read_to_string(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/artifacts/third_party/a_pickle_for_the_knowing_ones.txt")).unwrap();
     c.bench_function("casefold a pickle for the knowing ones", |b| b.iter(|| dictionary.casefold(black_box(&a_pickle_for_the_knowing_ones))));
-    c.bench_function("tokenize a pickle for the knowing ones", |b| b.iter(|| MwisSymbolizer.symbolize(black_box(&dictionary), black_box(&a_pickle_for_the_knowing_ones))));
+    c.bench_function("tokenize a pickle for the knowing ones", |b| b.iter(|| MwisSymbolizer.symbolize(&symbolizer_config, black_box(&dictionary), black_box(&a_pickle_for_the_knowing_ones))));
 
     let human_second = std::fs::read_to_string(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/artifacts/human_second.txt")).unwrap();
     c.bench_function("casefold human second", |b| b.iter(|| dictionary.casefold(black_box(&human_second))));
-    c.bench_function("tokenize human second", |b| b.iter(|| MwisSymbolizer.symbolize(black_box(&dictionary), black_box(&human_second))));
+    c.bench_function("tokenize human second", |b| b.iter(|| MwisSymbolizer.symbolize(&symbolizer_config, black_box(&dictionary), black_box(&human_second))));
 
     let octoling_plot = std::fs::read_to_string(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/artifacts/octoling_plot.txt")).unwrap();
     c.bench_function("casefold octoling plot", |b| b.iter(|| dictionary.casefold(black_box(&octoling_plot))));
-    c.bench_function("tokenize octoling plot", |b| b.iter(|| MwisSymbolizer.symbolize(black_box(&dictionary), black_box(&octoling_plot))));
+    c.bench_function("tokenize octoling plot", |b| b.iter(|| MwisSymbolizer.symbolize(&symbolizer_config, black_box(&dictionary), black_box(&octoling_plot))));
 }
 
 criterion_group!(benches, criterion_benchmark);

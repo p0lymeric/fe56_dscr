@@ -90,8 +90,14 @@ pub struct Symbolized {
     pub traces: Vec<SymbolizerTrace>,
 }
 
+#[derive(Debug, Clone, Copy)]
+#[repr(C)]
+pub struct SymbolizerConfig {
+    pub case_sensitive: bool,
+}
+
 pub trait Symbolizer {
-    fn symbolize(&self, dictionary: &dyn dictionary::Dictionary, input: &str) -> Symbolized;
+    fn symbolize(&self, config: &SymbolizerConfig, dictionary: &dyn dictionary::Dictionary, input: &str) -> Symbolized;
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
