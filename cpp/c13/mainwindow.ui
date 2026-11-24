@@ -105,7 +105,14 @@
              <widget class="QWidget" name="widget_3" native="true">
               <layout class="QHBoxLayout" name="horizontalLayout_3">
                <item>
-                <widget class="QLineEdit" name="signalViz"/>
+                <layout class="QVBoxLayout" name="verticalLayout_8">
+                 <item>
+                  <widget class="QLineEdit" name="signalViz"/>
+                 </item>
+                 <item>
+                  <widget class="QLineEdit" name="quickCompiler"/>
+                 </item>
+                </layout>
                </item>
                <item>
                 <widget class="QPushButton" name="sendButton">

@@ -416,6 +416,7 @@ void MainWindow::onMessageEditorTextChanged() {
     }
 
     QString signalVizText;
+    QString quickCompilerText;
 
     QList<QTextEdit::ExtraSelection> selections;
     bool parity = false;
@@ -425,30 +426,35 @@ void MainWindow::onMessageEditorTextChanged() {
         switch(trace.kind.tag) {
         case Token:
             fmt.setUnderlineStyle(QTextCharFormat::SingleUnderline);
-            fmt.setUnderlineColor(parity ? QColor(0xff, 0x00, 0x00) : QColor(0x00, 0x00, 0xff));
+            fmt.setUnderlineColor(parity ? QColor(0x00, 0x00, 0xff) : QColor(0xff, 0x00, 0xff));
             fmt.setProperty(UserTextFormatProperty::SignalIdqint64, trace.kind.token.id);
             parity ^= true;
             signalVizText += QString("|%1").arg(trace.kind.token.id);
+            quickCompilerText += this->core->dictionary.translateSimple(trace.kind.token.id) + " ";
             break;
         case TokenBig:
             fmt.setUnderlineStyle(QTextCharFormat::SpellCheckUnderline);
             fmt.setUnderlineColor(QColor(0xff, 0x00, 0x00));
             signalVizText += "|~";
+            quickCompilerText += text.sliced(utf8ToUtf16Map[trace.span.start], utf8ToUtf16Map[trace.span.end] - utf8ToUtf16Map[trace.span.start]) + " ";
             break;
         case TokenAmbiguousAlt:
             fmt.setUnderlineStyle(QTextCharFormat::WaveUnderline);
             fmt.setUnderlineColor(QColor(0xff, 0xff, 0x00));
             signalVizText += QString("|%1?%2").arg(trace.kind.token_ambiguous_alt.id).arg(trace.kind.token_ambiguous_alt.id_alt);
+            quickCompilerText += text.sliced(utf8ToUtf16Map[trace.span.start], utf8ToUtf16Map[trace.span.end] - utf8ToUtf16Map[trace.span.start]) + " ";
             break;
         case TokenAmbiguous:
             fmt.setUnderlineStyle(QTextCharFormat::WaveUnderline);
             fmt.setUnderlineColor(QColor(0xff, 0xff, 0x00));
             signalVizText += QString("|%1?").arg(trace.kind.token_ambiguous.id);
+            quickCompilerText += text.sliced(utf8ToUtf16Map[trace.span.start], utf8ToUtf16Map[trace.span.end] - utf8ToUtf16Map[trace.span.start]) + " ";
             break;
         case Unconsumed:
             fmt.setUnderlineStyle(QTextCharFormat::SpellCheckUnderline);
             fmt.setUnderlineColor(QColor(0xff, 0x00, 0x00));
             signalVizText += "|!";
+            quickCompilerText += text.sliced(utf8ToUtf16Map[trace.span.start], utf8ToUtf16Map[trace.span.end] - utf8ToUtf16Map[trace.span.start]) + " ";
             break;
         case Whitespace:
             continue;
@@ -464,6 +470,7 @@ void MainWindow::onMessageEditorTextChanged() {
     // FIXME the program globally starts to lag with several hundred cursors
     ui->messageEditor->setExtraSelections(selections);
     ui->signalViz->setText(signalVizText);
+    ui->quickCompiler->setText(quickCompilerText);
     // qDebug() << "format time" << stopwatch.durationElapsed();
 }
 
