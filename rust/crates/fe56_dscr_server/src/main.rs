@@ -1,5 +1,8 @@
 use fe56_dscr_protocol::message;
 
+use clap::Parser;
+use clap::ValueEnum;
+
 use futures_util::SinkExt;
 use futures_util::StreamExt;
 
@@ -7,9 +10,7 @@ use std::collections::BTreeMap;
 use std::collections::HashMap;
 use std::collections::VecDeque;
 use std::error::Error;
-use std::env;
 use std::net::SocketAddr;
-use std::str::FromStr;
 use std::sync::Arc;
 use std::sync::Mutex;
 use std::time::Duration;
@@ -44,7 +45,7 @@ struct ClientBack {
     ping_outstanding_cycles: u8,
 }
 
-async fn handle_connection(global_state: Arc<Mutex<GlobalState>>, raw_stream: TcpStream, addr: SocketAddr) {
+async fn handle_connection(quirk: &message::MessageParseQuirks, global_state: Arc<Mutex<GlobalState>>, raw_stream: TcpStream, addr: SocketAddr) {
     println!("Incoming TCP connection from: {}", addr);
 
     let ws_stream = tokio_tungstenite::accept_async(raw_stream)
@@ -87,7 +88,7 @@ async fn handle_connection(global_state: Arc<Mutex<GlobalState>>, raw_stream: Tc
                     if msg.is_pong() {
                         client_back.ping_outstanding_cycles = 0;
                     } else if msg.is_text() {
-                        let dscr_message = message::Message::from_str(&msg.into_text().unwrap());
+                        let dscr_message = message::Message::from_str_with_quirks(&msg.into_text().unwrap(), quirk);
                         if let Ok(dscr_message) = dscr_message {
                             let mut global_state = global_state.lock().unwrap();
                             let maybe_call_sign = global_state.client_fronts[&addr].call_sign;
@@ -183,14 +184,43 @@ async fn handle_connection(global_state: Arc<Mutex<GlobalState>>, raw_stream: Tc
     }
 }
 
+#[derive(Debug, Clone, ValueEnum)]
+enum ParserPersonality {
+    /// Accept more out-of-spec message format deviations, within reason
+    Permissive,
+    /// Reject most out-of-spec message format deviations, within reason
+    Pedantic,
+    /// Match Dixonary's server's message parser behaviour
+    DixonaryLike
+}
+
+#[derive(Debug, Parser)]
+#[command(version, about, long_about = None)]
+struct Args {
+    /// Controls the strictness of the server's message parser
+    #[arg(short, long, value_enum, default_value_t = ParserPersonality::DixonaryLike)]
+    personality: ParserPersonality,
+
+    /// Sets the bound IP address and TCP port on which to listen for unencrypted WebSockets connections
+    #[arg(default_value_t = "127.0.0.1:3101".to_string())]
+    bind_addr: String,
+}
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
-    let addr = env::args().nth(1).unwrap_or_else(|| "127.0.0.1:8080".to_string());
+    let args = Args::parse();
+
+    // Configure the message parser quirk based on the given personality argument
+    let quirk = match args.personality {
+        ParserPersonality::Permissive => &message::MessageParseQuirks::PERMISSIVE,
+        ParserPersonality::Pedantic => &message::MessageParseQuirks::PEDANTIC,
+        ParserPersonality::DixonaryLike =>  &message::MessageParseQuirks::DIXONARY_LIKE,
+    };
 
     // Create the event loop and TCP listener we'll accept connections on.
-    let try_socket = TcpListener::bind(&addr).await;
+    let try_socket = TcpListener::bind(&args.bind_addr).await;
     let listener = try_socket.expect("Failed to bind");
-    println!("Listening on: {}", addr);
+    println!("Listening on: {}", args.bind_addr);
 
     let global_state = Arc::new(Mutex::new(GlobalState {
         client_fronts: HashMap::new(),
@@ -201,7 +231,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     // Spawn the handling of each connection in a separate task.
     while let Ok((stream, addr)) = listener.accept().await {
-        tokio::spawn(handle_connection(global_state.clone(), stream, addr));
+        tokio::spawn(handle_connection(quirk, global_state.clone(), stream, addr));
     }
 
     Ok(())
