@@ -7,5 +7,5 @@ edition = "2024"
 clap.workspace = true
 fe56_dscr_protocol = { path = "../fe56_dscr_protocol" }
 futures-util = "0.3"
-tokio = { version = "1", features = ["rt", "net", "macros", "rt-multi-thread", "time", "sync"] }
+tokio = { version = "1", features = ["rt", "net", "macros", "rt-multi-thread", "time", "sync", "signal"] }
 tokio-tungstenite = "0.30"
